@@ -5,6 +5,11 @@ body {
   font: 16px/1.6 system-ui, sans-serif;
 }
 
+/* PDF page margins take their color from here, not from body. */
+@page {
+  background: #fff;
+}
+
 #content {
   max-width: 48rem;
   margin: 0 auto;
@@ -45,8 +50,9 @@ th, td {
   border: 1px solid #d0d7de;
 }
 
+/* Named fonts first: a system `monospace` alias can point at an icon-only font. */
 code {
-  font-family: ui-monospace, monospace;
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
   font-size: 0.9em;
 }
 
@@ -73,7 +79,17 @@ pre {
   vertical-align: middle;
 }
 
+/* Loose lists wrap the item text in a <p>; keep it next to its checkbox. */
+.task-list-item-checkbox + p {
+  display: inline;
+}
+
 @media print {
+  /* 10pt on A4 wraps lines about like the 48rem preview column at 16px. */
+  body {
+    font-size: 10pt;
+  }
+
   #content {
     max-width: none;
     padding: 0;
