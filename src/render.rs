@@ -26,6 +26,7 @@ fn comrak_options(allow_html: bool) -> Options<'static> {
     options.extension.strikethrough = true;
     options.extension.footnotes = true;
     options.extension.autolink = true;
+    options.render.tasklist_classes = true;
     options.render.r#unsafe = allow_html;
     options
 }
@@ -109,6 +110,7 @@ mod tests {
         let html = render_fragment("| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done", false);
         assert!(html.contains("<table>"));
         assert!(html.contains("type=\"checkbox\""));
+        assert!(html.contains("class=\"task-list-item\""));
     }
 
     #[test]
