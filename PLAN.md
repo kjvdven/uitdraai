@@ -111,7 +111,7 @@ Renderen en exporteren werkt vanuit de terminal.
 
 - [x] Cargo-project met `gui`-feature (nog leeg) en release profile uit `CLAUDE.md`
 - [x] `render.rs`: comrak (GFM), syntect met CSS-classes, rauwe HTML standaard uit
-- [ ] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
+- [x] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
 - [ ] `theme.rs` met de zoekvolgorde
 - [ ] `export.rs`: PDF via weasyprint, met tool-detectie
 - [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`

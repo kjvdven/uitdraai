@@ -1,0 +1,25 @@
+/* Loaded before the theme, so only set what themes normally leave alone. */
+@page {
+  size: A4;
+  margin: 2cm 2cm 2.5cm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font: 9pt system-ui, sans-serif;
+    color: #59636e;
+  }
+}
+
+@media print {
+  pre {
+    white-space: pre-wrap;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+  }
+
+  pre, blockquote, tr, img {
+    break-inside: avoid;
+  }
+}
