@@ -137,7 +137,7 @@ Een live previewvenster op Wayland.
 - [ ] Blitz heroverwegen als lichtere viewer (pure Rust, geen WebKit, geen webproces). Pas zinvol als de CSS die de thema's gebruiken daar goed wordt ondersteund; de roadmap van Blitz eerst naast de thema's leggen
 - [ ] Automatisch licht/donker volgen via `prefers-color-scheme`
 - [ ] DOCX/ODT-export via pandoc (`--docx`, `--odt`, `--reference-doc`), zie de ontwerpkeuze "DOCX/ODT pas in fase 3". Pandoc's `--sandbox` voor remote content uitzoeken
-- [ ] `config.toml` voor standaardthema, exportmap, reference-doc en de NVIDIA-workaround
+- [ ] `config.toml` voor standaardthema, exportmap, reference-doc en de NVIDIA-workaround. Die zet `WEBKIT_DISABLE_DMABUF_RENDERER` als allereerste stap in `main()`, vóór GTK-init en voordat er threads draaien; `std::env::set_var` is `unsafe` in edition 2024, dus met een `// SAFETY:`-comment
 
 ## Dependencies per distro
 - **Arch:** `gtk4 webkitgtk-6.0 pandoc python-weasyprint`
