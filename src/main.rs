@@ -6,6 +6,7 @@ mod watch;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand};
@@ -47,6 +48,10 @@ struct GlobalOpts {
     /// Load remote images (blocked by default)
     #[arg(long, global = true)]
     allow_remote: bool,
+
+    /// Log the duration of each step to stderr
+    #[arg(long, global = true)]
+    timing: bool,
 }
 
 #[derive(Subcommand)]
@@ -144,18 +149,38 @@ fn export_file(
     let pdf = output
         .unwrap_or(base_dir)
         .join(name.file_name().context("no file name")?);
-    export::export_pdf(&html, base_dir, &pdf, global.allow_remote)?;
+    timed(global.timing, "export", || {
+        export::export_pdf(&html, base_dir, &pdf, global.allow_remote)
+    })?;
     eprintln!("wrote {}", pdf.display());
     Ok(())
 }
 
 fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<String> {
-    let markdown =
-        fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))?;
-    let css = theme::resolve(global.css.as_deref(), global.theme.as_deref(), theme_dir)?;
+    let markdown = timed(global.timing, "read", || {
+        fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))
+    })?;
+    let css = timed(global.timing, "theme", || {
+        theme::resolve(global.css.as_deref(), global.theme.as_deref(), theme_dir)
+    })?;
     let opts = RenderOptions {
         allow_html: global.allow_html,
         allow_remote: global.allow_remote,
     };
-    Ok(render::render_page(&markdown, &css, opts))
+    Ok(timed(global.timing, "render", || {
+        render::render_page(&markdown, &css, opts)
+    }))
+}
+
+/// Runs `step` and, with `--timing`, logs how long it took to stderr.
+fn timed<T>(enabled: bool, label: &str, step: impl FnOnce() -> T) -> T {
+    let start = Instant::now();
+    let result = step();
+    if enabled {
+        eprintln!(
+            "timing: {label} {:.1} ms",
+            start.elapsed().as_secs_f64() * 1000.0
+        );
+    }
+    result
 }

@@ -117,7 +117,7 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] `main.rs`: CLI met clap (derive), subcommando's `render` en `themes [--dump]` en de globale opties; `export` volgt bij `export.rs`
 - [x] `export.rs`: PDF via weasyprint, met tool-detectie
 - [x] `watch.rs` met directory-watch en debounce, plus `export --watch`
-- [ ] `--timing` vlag
+- [x] `--timing` vlag
 - [ ] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
 - [ ] Fixture `tests/fixtures/large.md` van ~1000 regels (koppen, tabellen, codeblokken) als vast meetdocument. Geen timing-asserts in `cargo test`; die zijn flaky
 

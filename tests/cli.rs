@@ -119,3 +119,17 @@ fn export_writes_pdf_next_to_markdown() {
             .starts_with(b"%PDF")
     );
 }
+
+#[test]
+fn timing_logs_each_step_to_stderr() {
+    let dir = temp_dir("timing");
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi").unwrap();
+
+    let out = uitdraai(&dir, &["render", md.to_str().unwrap(), "--timing"]);
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(out.status.success());
+    for step in ["read", "theme", "render"] {
+        assert!(stderr.contains(&format!("timing: {step} ")), "{stderr}");
+    }
+}
