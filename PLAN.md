@@ -135,7 +135,7 @@ A live preview window on Wayland.
 **Done when:** you open a file in niri or Hyprland, save it in your editor, and the preview updates without jumping, and `--timing` (release build, `tests/fixtures/large.md`) meets the performance targets from `CLAUDE.md`: window with content < 300 ms, update after save < 50 ms.
 
 ### Phase 3: extras
-- [ ] Render Mermaid and KaTeX to SVG in Rust up front, without JavaScript in the page. Research and propose a suitable crate or tool first
+- [ ] Render Mermaid and KaTeX to SVG in Rust up front, without JavaScript in the page. Mermaid research and options: [#1](https://github.com/kjvdven/uitdraai/issues/1); parked to keep the app simple. KaTeX still to research
 - [ ] Reconsider Blitz as a lighter viewer (pure Rust, no WebKit, no web process). Only worthwhile once the CSS the themes use is well supported there; compare Blitz's roadmap with the themes first
 - [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content
 - [x] `config.toml` with `theme`, `export_dir`, `editor` (a list, e.g. `["ghostty", "-e", "hx"]`, so terminal editors work too) and `disable_dmabuf` (NVIDIA). The latter sets `WEBKIT_DISABLE_DMABUF_RENDERER` in `gui::run` before GTK starts and before the watcher thread, with a `// SAFETY:` comment. `reference-doc` follows with DOCX
@@ -152,5 +152,5 @@ A live preview window on Wayland.
 - **Preview and PDF use different engines.** See the design decision "One render path". If differences become a nuisance in practice, an optional `--pdf-engine webkit` could be added.
 - **WebKitGTK is big.** Over 100 MB on disk and roughly 80 to 150 MB RAM per window. Accepted for now; Blitz is the alternative for later (phase 3). If you only want the CLI, build without the `gui` feature.
 - **Syntect cold start.** Phase 1 baseline (release, `tests/fixtures/large.md`): first render ~180 ms, after that ~16 ms, without code blocks ~1 ms. Almost all of it is one-time syntect initialisation. Fits the 300 ms startup target, but only just. Options if it turns out too slow: warm up the `LazyLock` in a thread in parallel with GTK init, or `syntect-onig` instead of `syntect-fancy`.
-- **Mermaid and KaTeX without JavaScript.** Rendering to SVG up front in Rust hasn't been researched yet. If that doesn't work well, the fallback is our own embedded scripts via `UserContentManager` (never scripts from the Markdown file). Decide at the start of phase 3.
+- **Mermaid and KaTeX without JavaScript.** Mermaid is researched (see #1): `merman` or `mmdflux` can render SVG in pure Rust; KaTeX is not researched yet. If that doesn't work well, the fallback is our own embedded scripts via `UserContentManager` (never scripts from the Markdown file). Decide at the start of phase 3.
 - **Remote content.** Decided: off by default, only on via `--allow-remote`. In the preview the CSP meta tag blocks it (see `CLAUDE.md`). WeasyPrint gets `--allowed-protocols file,data` (with `--allow-remote` also `https`); the CSP meta tag doesn't apply there.
