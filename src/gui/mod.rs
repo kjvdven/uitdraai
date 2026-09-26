@@ -66,6 +66,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
     );
     let hooks = Arc::new(hooks);
     let default_pdf = file.with_extension("pdf");
+    let markdown_file = file.clone();
 
     let (tx, rx) = async_channel::unbounded();
     let worker_hooks = Arc::clone(&hooks);
@@ -108,11 +109,15 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         let theme_picker = gtk::DropDown::from_strings(&labels);
         theme_picker.set_selected(u32::try_from(selected).unwrap_or(0));
         theme_picker.set_tooltip_text(Some("Theme"));
+        let editor_button = gtk::Button::builder()
+            .label("Open in editor")
+            .action_name("win.open-editor")
+            .hexpand(true)
+            .halign(gtk::Align::End)
+            .build();
         let export_button = gtk::Button::builder()
             .label("Export PDF")
             .action_name("win.export-pdf")
-            .hexpand(true)
-            .halign(gtk::Align::End)
             .build();
         let toolbar = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
@@ -123,6 +128,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             .margin_bottom(6)
             .build();
         toolbar.append(&theme_picker);
+        toolbar.append(&editor_button);
         toolbar.append(&export_button);
 
         toolbar.set_visible(options.show_bars);
@@ -145,6 +151,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             status,
             toolbar,
             hooks: Arc::clone(&hooks),
+            markdown_file: markdown_file.clone(),
             default_pdf: default_pdf.clone(),
             theme: Rc::new(RefCell::new(options.theme.clone())),
         };
@@ -191,6 +198,7 @@ struct Ctx {
     status: StatusBar,
     toolbar: gtk::Box,
     hooks: Arc<Hooks>,
+    markdown_file: PathBuf,
     default_pdf: PathBuf,
     theme: Rc<RefCell<Option<String>>>,
 }
@@ -290,6 +298,18 @@ impl Ctx {
         });
     }
 
+    /// Opens the Markdown file in the desktop's default app for it.
+    fn open_editor(&self, window: &gtk::ApplicationWindow) {
+        // Not gtk::FileLauncher: its portal shows a chooser of "recommended" apps that
+        // can leave out the default one the user picked for Markdown.
+        let uri = gio::File::for_path(&self.markdown_file).uri();
+        let context = WidgetExt::display(window).app_launch_context();
+        if let Err(err) = gio::AppInfo::launch_default_for_uri(&uri, Some(&context)) {
+            self.status
+                .set(&format!("Error: cannot open editor: {err}"));
+        }
+    }
+
     fn toggle_bars(&self) {
         let visible = !self.toolbar.is_visible();
         self.toolbar.set_visible(visible);
@@ -314,6 +334,7 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
         action("reload", |ctx, _| ctx.reload()),
         action("export-pdf", Ctx::export_pdf),
         action("open", Ctx::open),
+        action("open-editor", Ctx::open_editor),
         action("toggle-bars", |ctx, _| ctx.toggle_bars()),
         action("zoom-in", |ctx, _| ctx.zoom(Some(1.1))),
         action("zoom-out", |ctx, _| ctx.zoom(Some(1.0 / 1.1))),
@@ -323,6 +344,7 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
     app.set_accels_for_action("win.reload", &["<Control>r"]);
     app.set_accels_for_action("win.export-pdf", &["<Control>e"]);
     app.set_accels_for_action("win.open", &["<Control>o"]);
+    app.set_accels_for_action("win.open-editor", &["<Control><Shift>o"]);
     app.set_accels_for_action("win.toggle-bars", &["<Control>t"]);
     // `+` needs Shift on most layouts, so Ctrl+= counts as zoom in too.
     app.set_accels_for_action(
