@@ -1,5 +1,5 @@
-use std::cell::Cell;
-use std::path::PathBuf;
+use std::cell::{Cell, RefCell};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::thread;
@@ -15,12 +15,18 @@ use crate::watch;
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
 
-/// Rendering work the window hands off to the rest of the app. Both run off the GTK thread.
+type PathHook = Box<dyn Fn(&Path) -> Result<()> + Send + Sync>;
+
+/// Work the window hands off to the rest of the app. Rendering and export run off the GTK thread.
 pub struct Hooks {
     /// Renders the complete page, for the first load and `Ctrl+R`.
     pub render_page: Box<dyn Fn() -> Result<String> + Send + Sync>,
     /// Renders only the `#content` HTML, for live reload after a save.
     pub render_content: Box<dyn Fn() -> Result<String> + Send + Sync>,
+    /// Exports the file to PDF at the given path.
+    pub export_pdf: PathHook,
+    /// Opens another Markdown file in a new window.
+    pub open: PathHook,
 }
 
 /// Opens the preview window for `file` and blocks until it is closed.
@@ -40,6 +46,7 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
         |name| name.to_string_lossy().into_owned(),
     );
     let hooks = Arc::new(hooks);
+    let default_pdf = file.with_extension("pdf");
 
     let (tx, rx) = async_channel::unbounded();
     let worker_hooks = Arc::clone(&hooks);
@@ -64,19 +71,12 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
         let preview = Preview::new(&base_uri);
         preview.load(&page);
 
-        let status = gtk::Label::builder()
-            .label(format!("Opened {}", clock()))
-            .xalign(0.0)
-            .margin_start(12)
-            .margin_end(12)
-            .margin_top(6)
-            .margin_bottom(6)
-            .css_classes(["dim-label"])
-            .build();
+        let status = StatusBar::new();
+        status.set(&format!("Opened {}", clock()));
         preview.webview.set_vexpand(true);
         let layout = gtk::Box::new(gtk::Orientation::Vertical, 0);
         layout.append(&preview.webview);
-        layout.append(&status);
+        layout.append(&status.root);
 
         let window = gtk::ApplicationWindow::builder()
             .application(app)
@@ -85,7 +85,7 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
             .default_height(1000)
             .child(&layout)
             .build();
-        add_shortcuts(app, &window, &preview, &status, &hooks);
+        add_shortcuts(app, &window, &preview, &status, &hooks, &default_pdf);
         window.present();
 
         let rx = rx.clone();
@@ -94,9 +94,9 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
                 match content {
                     Ok(content) => {
                         preview.replace_content(&content);
-                        status.set_label(&format!("Updated {} · {}", clock(), millis(took)));
+                        status.set(&format!("Updated {} · {}", clock(), millis(took)));
                     }
-                    Err(err) => status.set_label(&format!("Error: {err:#}")),
+                    Err(err) => status.set(&format!("Error: {err:#}")),
                 }
             }
         });
@@ -114,8 +114,9 @@ fn add_shortcuts(
     app: &gtk::Application,
     window: &gtk::ApplicationWindow,
     preview: &Preview,
-    status: &gtk::Label,
+    status: &StatusBar,
     hooks: &Arc<Hooks>,
+    default_pdf: &Path,
 ) {
     let reload = {
         let (preview, status, hooks) = (preview.clone(), status.clone(), Arc::clone(hooks));
@@ -127,10 +128,77 @@ fn add_shortcuts(
                     match gio::spawn_blocking(move || (hooks.render_page)()).await {
                         Ok(Ok(page)) => {
                             preview.load(&page);
-                            status.set_label(&format!("Reloaded {}", clock()));
+                            status.set(&format!("Reloaded {}", clock()));
                         }
-                        Ok(Err(err)) => status.set_label(&format!("Error: {err:#}")),
-                        Err(_) => status.set_label("Error: rendering panicked"),
+                        Ok(Err(err)) => status.set(&format!("Error: {err:#}")),
+                        Err(_) => status.set("Error: rendering panicked"),
+                    }
+                });
+            })
+            .build()
+    };
+    let export_pdf = {
+        let (status, hooks, default_pdf) =
+            (status.clone(), Arc::clone(hooks), default_pdf.to_owned());
+        gio::ActionEntry::builder("export-pdf")
+            .activate(move |window: &gtk::ApplicationWindow, _, _| {
+                let mut dialog = gtk::FileDialog::builder().title("Export PDF");
+                if let Some(dir) = default_pdf.parent() {
+                    dialog = dialog.initial_folder(&gio::File::for_path(dir));
+                }
+                if let Some(name) = default_pdf.file_name() {
+                    dialog = dialog.initial_name(name.to_string_lossy().as_ref());
+                }
+                let (status, hooks) = (status.clone(), Arc::clone(&hooks));
+                dialog
+                    .build()
+                    .save(Some(window), None::<&gio::Cancellable>, move |result| {
+                        // Err also means the dialog was cancelled; nothing to report then.
+                        let Some(pdf) = result.ok().and_then(|file| file.path()) else {
+                            return;
+                        };
+                        status.set("Exporting PDF…");
+                        glib::spawn_future_local(async move {
+                            let target = pdf.clone();
+                            match gio::spawn_blocking(move || (hooks.export_pdf)(&target)).await {
+                                Ok(Ok(())) => {
+                                    status.set(&format!(
+                                        "PDF saved {}: {}",
+                                        clock(),
+                                        pdf.display()
+                                    ));
+                                    status.show_pdf(pdf);
+                                }
+                                Ok(Err(err)) => status.set(&format!("Error: {err:#}")),
+                                Err(_) => status.set("Error: export panicked"),
+                            }
+                        });
+                    });
+            })
+            .build()
+    };
+    let open = {
+        let (status, hooks) = (status.clone(), Arc::clone(hooks));
+        gio::ActionEntry::builder("open")
+            .activate(move |window: &gtk::ApplicationWindow, _, _| {
+                let filter = gtk::FileFilter::new();
+                filter.set_name(Some("Markdown"));
+                filter.add_suffix("md");
+                filter.add_suffix("markdown");
+                let filters = gio::ListStore::new::<gtk::FileFilter>();
+                filters.append(&filter);
+                let dialog = gtk::FileDialog::builder()
+                    .title("Open Markdown file")
+                    .filters(&filters)
+                    .build();
+                let (status, hooks) = (status.clone(), Arc::clone(&hooks));
+                dialog.open(Some(window), None::<&gio::Cancellable>, move |result| {
+                    // Err also means the dialog was cancelled; nothing to report then.
+                    let Some(path) = result.ok().and_then(|file| file.path()) else {
+                        return;
+                    };
+                    if let Err(err) = (hooks.open)(&path) {
+                        status.set(&format!("Error: {err:#}"));
                     }
                 });
             })
@@ -140,7 +208,7 @@ fn add_shortcuts(
         let status = status.clone();
         gio::ActionEntry::builder("toggle-bars")
             .activate(move |_: &gtk::ApplicationWindow, _, _| {
-                status.set_visible(!status.is_visible());
+                status.root.set_visible(!status.root.is_visible());
             })
             .build()
     };
@@ -159,6 +227,8 @@ fn add_shortcuts(
 
     window.add_action_entries([
         reload,
+        export_pdf,
+        open,
         toggle_bars,
         zoom("zoom-in", Some(1.1)),
         zoom("zoom-out", Some(1.0 / 1.1)),
@@ -166,6 +236,8 @@ fn add_shortcuts(
         close,
     ]);
     app.set_accels_for_action("win.reload", &["<Control>r"]);
+    app.set_accels_for_action("win.export-pdf", &["<Control>e"]);
+    app.set_accels_for_action("win.open", &["<Control>o"]);
     app.set_accels_for_action("win.toggle-bars", &["<Control>t"]);
     // `+` needs Shift on most layouts, so Ctrl+= counts as zoom in too.
     app.set_accels_for_action(
@@ -175,6 +247,95 @@ fn add_shortcuts(
     app.set_accels_for_action("win.zoom-out", &["<Control>minus", "<Control>KP_Subtract"]);
     app.set_accels_for_action("win.zoom-reset", &["<Control>0", "<Control>KP_0"]);
     app.set_accels_for_action("win.close", &["<Control>q"]);
+}
+
+/// Bottom bar with the last event, plus buttons for the last exported PDF.
+#[derive(Clone)]
+struct StatusBar {
+    root: gtk::Box,
+    label: gtk::Label,
+    pdf_buttons: gtk::Box,
+    last_pdf: Rc<RefCell<Option<PathBuf>>>,
+}
+
+impl StatusBar {
+    fn new() -> Self {
+        // Middle ellipsis keeps the file name visible and stops long paths widening the window.
+        let label = gtk::Label::builder()
+            .xalign(0.0)
+            .hexpand(true)
+            .ellipsize(gtk::pango::EllipsizeMode::Middle)
+            .css_classes(["dim-label"])
+            .build();
+        let open = gtk::Button::builder()
+            .label("Open PDF")
+            .css_classes(["flat"])
+            .build();
+        let reveal = gtk::Button::builder()
+            .label("Show in folder")
+            .css_classes(["flat"])
+            .build();
+        let pdf_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        pdf_buttons.append(&open);
+        pdf_buttons.append(&reveal);
+        // Invisible rather than hidden until the first export, so the bar keeps its height.
+        pdf_buttons.set_opacity(0.0);
+        pdf_buttons.set_sensitive(false);
+
+        let root = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(8)
+            .margin_start(12)
+            .margin_end(12)
+            .margin_top(6)
+            .margin_bottom(6)
+            .build();
+        root.append(&label);
+        root.append(&pdf_buttons);
+
+        let bar = Self {
+            root,
+            label,
+            pdf_buttons,
+            last_pdf: Rc::new(RefCell::new(None)),
+        };
+        let this = bar.clone();
+        open.connect_clicked(move |_| this.launch_pdf(false));
+        let this = bar.clone();
+        reveal.connect_clicked(move |_| this.launch_pdf(true));
+        bar
+    }
+
+    fn set(&self, text: &str) {
+        self.label.set_label(text);
+        self.label.set_tooltip_text(Some(text));
+    }
+
+    fn show_pdf(&self, pdf: PathBuf) {
+        self.last_pdf.replace(Some(pdf));
+        self.pdf_buttons.set_opacity(1.0);
+        self.pdf_buttons.set_sensitive(true);
+    }
+
+    /// Opens the last PDF in its default app, or its folder in the file manager.
+    fn launch_pdf(&self, in_folder: bool) {
+        let Some(pdf) = self.last_pdf.borrow().clone() else {
+            return;
+        };
+        let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&pdf)));
+        let this = self.clone();
+        let done = move |result: Result<(), glib::Error>| {
+            if let Err(err) = result {
+                this.set(&format!("Error: cannot open {}: {err}", pdf.display()));
+            }
+        };
+        let window = self.root.root().and_downcast::<gtk::Window>();
+        if in_folder {
+            launcher.open_containing_folder(window.as_ref(), None::<&gio::Cancellable>, done);
+        } else {
+            launcher.launch(window.as_ref(), None::<&gio::Cancellable>, done);
+        }
+    }
 }
 
 /// The WebView plus what it needs to only ever show our own page.

@@ -110,8 +110,12 @@ fn main() -> Result<()> {
             output,
             watch,
         }) => {
-            let export =
-                || export_file(&file, output.as_deref(), &cli.global, theme_dir.as_deref());
+            let export = || -> Result<()> {
+                let pdf = default_pdf_path(&file, output.as_deref())?;
+                export_file(&file, &pdf, &cli.global, theme_dir.as_deref())?;
+                eprintln!("wrote {}", pdf.display());
+                Ok(())
+            };
             export()?;
             if watch {
                 eprintln!("watching {}, Ctrl+C to stop", file.display());
@@ -159,12 +163,23 @@ fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> R
             }))
         }
     };
+    let export_pdf = {
+        let (file, global, theme_dir) =
+            (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
+        move |pdf: &Path| export_file(&file, pdf, &global, theme_dir.as_deref())
+    };
+    let open = {
+        let global = global.clone();
+        move |file: &Path| spawn_preview(file, &global)
+    };
     gui::run(
         page,
         file,
         gui::Hooks {
             render_page: Box::new(render_page),
             render_content: Box::new(render_content),
+            export_pdf: Box::new(export_pdf),
+            open: Box::new(open),
         },
     )
 }
@@ -174,9 +189,23 @@ fn open_preview(_file: &Path, _global: &GlobalOpts, _theme_dir: Option<&Path>) -
     anyhow::bail!("built without the preview window; use `uitdraai render` or `uitdraai export`")
 }
 
+/// Where `export` writes by default: `<name>.pdf` in `output`, or next to the Markdown file.
+fn default_pdf_path(file: &Path, output: Option<&Path>) -> Result<PathBuf> {
+    let file =
+        fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
+    let dir = match output {
+        Some(dir) => dir,
+        None => file
+            .parent()
+            .context("Markdown file has no parent directory")?,
+    };
+    let name = file.with_extension("pdf");
+    Ok(dir.join(name.file_name().context("no file name")?))
+}
+
 fn export_file(
     file: &Path,
-    output: Option<&Path>,
+    pdf: &Path,
     global: &GlobalOpts,
     theme_dir: Option<&Path>,
 ) -> Result<()> {
@@ -186,15 +215,9 @@ fn export_file(
     let base_dir = file
         .parent()
         .context("Markdown file has no parent directory")?;
-    let name = file.with_extension("pdf");
-    let pdf = output
-        .unwrap_or(base_dir)
-        .join(name.file_name().context("no file name")?);
     timed(global.timing, "export", || {
-        export::export_pdf(&html, base_dir, &pdf, global.allow_remote)
-    })?;
-    eprintln!("wrote {}", pdf.display());
-    Ok(())
+        export::export_pdf(&html, base_dir, pdf, global.allow_remote)
+    })
 }
 
 fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<String> {
@@ -211,6 +234,34 @@ fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Re
     Ok(timed(global.timing, "render", || {
         render::render_page(&markdown, &css, opts)
     }))
+}
+
+/// Opens `file` in a new preview window with the same options, as a separate process.
+#[cfg(feature = "gui")]
+fn spawn_preview(file: &Path, global: &GlobalOpts) -> Result<()> {
+    let exe = std::env::current_exe().context("cannot find the uitdraai binary")?;
+    let mut command = std::process::Command::new(exe);
+    if let Some(css) = &global.css {
+        command.arg("--css").arg(css);
+    }
+    if let Some(theme) = &global.theme {
+        command.arg("--theme").arg(theme);
+    }
+    for (enabled, flag) in [
+        (global.allow_html, "--allow-html"),
+        (global.allow_remote, "--allow-remote"),
+        (global.timing, "--timing"),
+    ] {
+        if enabled {
+            command.arg(flag);
+        }
+    }
+    command
+        .arg("--")
+        .arg(file)
+        .spawn()
+        .with_context(|| format!("cannot open {}", file.display()))?;
+    Ok(())
 }
 
 /// Runs `step` and, with `--timing`, logs how long it took to stderr.
