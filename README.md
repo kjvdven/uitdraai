@@ -19,7 +19,7 @@ You need Rust (edition 2024), GTK 4.10+, WebKitGTK 6.0 and, for PDF export, Weas
 - **Arch:** `gtk4 webkitgtk-6.0 python-weasyprint`
 - **Fedora:** `gtk4-devel webkitgtk6.0-devel weasyprint`
 - **Debian/Ubuntu 24.04+:** `libgtk-4-dev libwebkitgtk-6.0-dev weasyprint`
-- **NixOS:** `nix develop` gives you the libraries and WeasyPrint
+- **NixOS:** `nix run github:kjvdven/uitdraai`, or `nix develop` for the libraries and WeasyPrint
 
 ```sh
 cargo install --git https://github.com/kjvdven/uitdraai
