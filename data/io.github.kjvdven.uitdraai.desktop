@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=uitdraai
+Comment=Markdown preview with PDF export
+Exec=uitdraai %f
+MimeType=text/markdown;text/x-markdown;
+Terminal=false
+Categories=Office;Viewer;
+StartupWMClass=io.github.kjvdven.uitdraai
