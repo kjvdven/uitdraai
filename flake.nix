@@ -1,5 +1,5 @@
 {
-  description = "uitdraai development shell";
+  description = "Lightweight Markdown previewer for Wayland";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -15,6 +15,25 @@
       ];
     in
     {
+      packages.x86_64-linux.default = pkgs.rustPlatform.buildRustPackage {
+        pname = "uitdraai";
+        version = "0.1.0";
+        src = ./.;
+        cargoLock.lockFile = ./Cargo.lock;
+        nativeBuildInputs = [
+          pkgs.pkg-config
+          pkgs.wrapGAppsHook4
+        ];
+        buildInputs = libs;
+        # PDF export shells out to weasyprint.
+        preFixup = ''
+          gappsWrapperArgs+=(--prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.python3Packages.weasyprint ]})
+        '';
+        postInstall = ''
+          install -Dm644 data/io.github.kjvdven.uitdraai.desktop -t $out/share/applications
+        '';
+      };
+
       # Rust itself comes from mise (mise.toml); this shell only adds system libraries.
       devShells.x86_64-linux.default = pkgs.mkShell {
         nativeBuildInputs = [ pkgs.pkg-config ];
