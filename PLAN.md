@@ -115,7 +115,7 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
 - [x] `theme.rs` met de zoekvolgorde
 - [x] `main.rs`: CLI met clap (derive), subcommando's `render` en `themes [--dump]` en de globale opties; `export` volgt bij `export.rs`
-- [ ] `export.rs`: PDF via weasyprint, met tool-detectie
+- [x] `export.rs`: PDF via weasyprint, met tool-detectie
 - [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [ ] `--timing` vlag
 - [ ] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
@@ -153,4 +153,4 @@ Een live previewvenster op Wayland.
 - **Preview en PDF gebruiken verschillende engines.** Zie de ontwerpkeuze "Eén renderpad". Als verschillen in de praktijk storend worden, kan een optionele `--pdf-engine webkit` worden toegevoegd.
 - **WebKitGTK is groot.** Meer dan 100 MB op schijf en ongeveer 80 tot 150 MB RAM per venster. Geaccepteerd voor nu; Blitz is het alternatief voor later (fase 3). Wie alleen de CLI wil, bouwt zonder de `gui`-feature.
 - **Mermaid en KaTeX zonder JavaScript.** Vooraf renderen naar SVG in Rust is nog niet uitgezocht. Lukt dat niet goed, dan is de terugvaloptie eigen, ingebakken scripts via `UserContentManager` (nooit scripts uit het Markdown-bestand). Beslissen bij de start van fase 3.
-- **Remote content.** Besloten: standaard uit, alleen aan via `--allow-remote`. In de preview blokkeert de CSP-meta het (zie `CLAUDE.md`). Voor WeasyPrint in fase 1 uitzoeken hoe je fetchen via de CLI uitzet; de CSP-meta geldt daar niet.
+- **Remote content.** Besloten: standaard uit, alleen aan via `--allow-remote`. In de preview blokkeert de CSP-meta het (zie `CLAUDE.md`). WeasyPrint krijgt `--allowed-protocols file,data` mee (met `--allow-remote` ook `https`); de CSP-meta geldt daar niet.

@@ -74,3 +74,48 @@ fn unknown_theme_fails() {
             .contains("unknown theme 'nope'")
     );
 }
+
+#[test]
+fn export_without_weasyprint_explains_how_to_install() {
+    let dir = temp_dir("nopdf");
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi").unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_uitdraai"))
+        .env("XDG_CONFIG_HOME", &dir)
+        .env("PATH", "")
+        .args(["export", md.to_str().unwrap(), "--pdf"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(!out.status.success());
+    assert!(stderr.contains("weasyprint not found"));
+    assert!(stderr.contains("sudo pacman -S python-weasyprint"));
+}
+
+#[test]
+fn export_writes_pdf_next_to_markdown() {
+    if Command::new("weasyprint")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("skipped: weasyprint not installed");
+        return;
+    }
+    let dir = temp_dir("pdf");
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi\n\n![img](missing.png)").unwrap();
+
+    let out = uitdraai(&dir, &["export", md.to_str().unwrap(), "--pdf"]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        fs::read(dir.join("notes.pdf"))
+            .unwrap()
+            .starts_with(b"%PDF")
+    );
+}

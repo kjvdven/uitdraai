@@ -1,3 +1,4 @@
+mod export;
 mod render;
 mod theme;
 
@@ -57,6 +58,18 @@ enum Command {
         #[arg(short, long, value_name = "PATH")]
         output: Option<PathBuf>,
     },
+    /// Export Markdown to PDF
+    Export {
+        file: PathBuf,
+
+        /// Export to PDF (via weasyprint)
+        #[arg(long, required = true)]
+        pdf: bool,
+
+        /// Output directory (default: next to the Markdown file)
+        #[arg(short, long, value_name = "DIR")]
+        output: Option<PathBuf>,
+    },
     /// List available themes
     Themes {
         /// Print a theme's CSS, as a starting point for your own
@@ -78,6 +91,25 @@ fn main() -> Result<()> {
                     .write_all(html.as_bytes())
                     .context("cannot write to stdout")?,
             }
+        }
+        Some(Command::Export {
+            file,
+            pdf: _,
+            output,
+        }) => {
+            let html = render_file(&file, &cli.global, theme_dir.as_deref())?;
+            let file = fs::canonicalize(&file)
+                .with_context(|| format!("cannot resolve {}", file.display()))?;
+            let base_dir = file
+                .parent()
+                .context("Markdown file has no parent directory")?;
+            let pdf = output.as_deref().unwrap_or(base_dir).join(
+                file.with_extension("pdf")
+                    .file_name()
+                    .context("no file name")?,
+            );
+            export::export_pdf(&html, base_dir, &pdf, cli.global.allow_remote)?;
+            eprintln!("wrote {}", pdf.display());
         }
         Some(Command::Themes { dump: Some(name) }) => {
             print!("{}", theme::load(&name, theme_dir.as_deref())?);
