@@ -34,7 +34,7 @@ Het plan en de fases staan in `PLAN.md`. Dit bestand beschrijft hoe we bouwen.
 - Geen netwerkverkeer tijdens renderen, preview of exporteren. Remote content alleen via de expliciete `--allow-remote` vlag.
 - De gerenderde pagina krijgt een CSP-meta: `default-src 'none'; img-src file: data:; style-src 'unsafe-inline'`. Met `--allow-remote` komt `https:` bij `img-src`. Dat blokkeert scripts en remote content ook als een andere laag faalt.
 - Geen `unwrap()` of `expect()` buiten tests; fouten via `anyhow` met `.context(...)`.
-- `cargo audit` (of `cargo deny`) draaien voordat er een dependency bijkomt.
+- `cargo audit` draaien voordat er een dependency bijkomt.
 
 ## Performance
 Doelen (release build, document van ~1000 regels):
