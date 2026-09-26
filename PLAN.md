@@ -70,6 +70,7 @@ uitdraai render <file.md> [-o out.html]    # HTML naar bestand of stdout
 uitdraai export <file.md> --pdf [-o <dir>]
 uitdraai export <file.md> --pdf --watch    # herexporteer bij elke save
 uitdraai themes                            # lijst beschikbare thema's
+uitdraai themes --dump <naam>              # thema naar stdout, als basis voor een eigen thema
 
 Globale opties:
   --css <pad>        eigen stylesheet (gaat voor --theme)
@@ -79,7 +80,7 @@ Globale opties:
   --timing           duur per stap loggen naar stderr
 ```
 
-Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, dan de ingebakken thema's. `print.css` wordt altijd vóór het thema geladen, zodat een `@media print`-blok in een eigen thema de print-regels kan overschrijven.
+Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, dan de ingebakken thema's. `print.css` wordt altijd vóór het thema geladen, zodat een `@media print`-blok in een eigen thema de print-regels kan overschrijven. Een eigen thema maak je door een bestaand thema te dumpen en aan te passen; thema's stapelen niet.
 
 ## GUI-specificatie
 - App-id `io.github.kjvdven.uitdraai`, zodat er window rules op gemaakt kunnen worden.
@@ -112,7 +113,7 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] Cargo-project met `gui`-feature (nog leeg) en release profile uit `CLAUDE.md`
 - [x] `render.rs`: comrak (GFM), syntect met CSS-classes, rauwe HTML standaard uit
 - [x] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
-- [ ] `theme.rs` met de zoekvolgorde
+- [x] `theme.rs` met de zoekvolgorde
 - [ ] `export.rs`: PDF via weasyprint, met tool-detectie
 - [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [ ] `--timing` vlag
