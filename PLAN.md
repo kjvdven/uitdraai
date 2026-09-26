@@ -110,7 +110,7 @@ windowrulev2 = size 40% 90%, class:^(io\.github\.kjvdven\.uitdraai)$
 Renderen en exporteren werkt vanuit de terminal.
 
 - [x] Cargo-project met `gui`-feature (nog leeg) en release profile uit `CLAUDE.md`
-- [ ] `render.rs`: comrak (GFM), syntect met CSS-classes, rauwe HTML standaard uit
+- [x] `render.rs`: comrak (GFM), syntect met CSS-classes, rauwe HTML standaard uit
 - [ ] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
 - [ ] `theme.rs` met de zoekvolgorde
 - [ ] `export.rs`: PDF via weasyprint, met tool-detectie
