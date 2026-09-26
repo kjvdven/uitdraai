@@ -323,6 +323,38 @@ impl Ctx {
     }
 }
 
+/// Window actions with their keys and help text; the one list behind both the
+/// accelerators and the `Ctrl+?` help window. The first key is the one shown in help.
+const SHORTCUTS: &[(&str, &[&str], &str)] = &[
+    ("win.open", &["<Control>o"], "Open another file"),
+    ("win.open-editor", &["<Control><Shift>o"], "Open in editor"),
+    ("win.export-pdf", &["<Control>e"], "Export PDF"),
+    ("win.reload", &["<Control>r"], "Reload page"),
+    (
+        "win.toggle-bars",
+        &["<Control>t"],
+        "Show or hide toolbar and status bar",
+    ),
+    // `+` needs Shift on most layouts, so Ctrl+= counts as zoom in too.
+    (
+        "win.zoom-in",
+        &["<Control>plus", "<Control>equal", "<Control>KP_Add"],
+        "Zoom in",
+    ),
+    (
+        "win.zoom-out",
+        &["<Control>minus", "<Control>KP_Subtract"],
+        "Zoom out",
+    ),
+    (
+        "win.zoom-reset",
+        &["<Control>0", "<Control>KP_0"],
+        "Reset zoom",
+    ),
+    ("win.shortcuts", &["<Control>question"], "Show shortcuts"),
+    ("win.close", &["<Control>q"], "Close window"),
+];
+
 fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &Ctx) {
     let action = |name: &str, run: fn(&Ctx, &gtk::ApplicationWindow)| {
         let ctx = ctx.clone();
@@ -339,21 +371,59 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
         action("zoom-in", |ctx, _| ctx.zoom(Some(1.1))),
         action("zoom-out", |ctx, _| ctx.zoom(Some(1.0 / 1.1))),
         action("zoom-reset", |ctx, _| ctx.zoom(None)),
+        action("shortcuts", |_, window| show_shortcuts(window)),
         action("close", |_, window| window.close()),
     ]);
-    app.set_accels_for_action("win.reload", &["<Control>r"]);
-    app.set_accels_for_action("win.export-pdf", &["<Control>e"]);
-    app.set_accels_for_action("win.open", &["<Control>o"]);
-    app.set_accels_for_action("win.open-editor", &["<Control><Shift>o"]);
-    app.set_accels_for_action("win.toggle-bars", &["<Control>t"]);
-    // `+` needs Shift on most layouts, so Ctrl+= counts as zoom in too.
-    app.set_accels_for_action(
-        "win.zoom-in",
-        &["<Control>plus", "<Control>equal", "<Control>KP_Add"],
-    );
-    app.set_accels_for_action("win.zoom-out", &["<Control>minus", "<Control>KP_Subtract"]);
-    app.set_accels_for_action("win.zoom-reset", &["<Control>0", "<Control>KP_0"]);
-    app.set_accels_for_action("win.close", &["<Control>q"]);
+    for (action, keys, _) in SHORTCUTS {
+        app.set_accels_for_action(action, keys);
+    }
+}
+
+/// A small modal list of all shortcuts; Esc closes it.
+fn show_shortcuts(parent: &gtk::ApplicationWindow) {
+    let grid = gtk::Grid::builder()
+        .row_spacing(8)
+        .column_spacing(24)
+        .margin_start(24)
+        .margin_end(24)
+        .margin_top(24)
+        .margin_bottom(24)
+        .build();
+    for (row, (_, keys, help)) in (0..).zip(SHORTCUTS) {
+        let key = keys
+            .first()
+            .and_then(|accel| gtk::accelerator_parse(*accel))
+            .map(|(key, mods)| gtk::accelerator_get_label(key, mods).to_string())
+            .unwrap_or_default();
+        let key = gtk::Label::builder()
+            .label(key)
+            .xalign(1.0)
+            .css_classes(["dim-label"])
+            .build();
+        grid.attach(&key, 0, row, 1, 1);
+        grid.attach(
+            &gtk::Label::builder().label(*help).xalign(0.0).build(),
+            1,
+            row,
+            1,
+            1,
+        );
+    }
+
+    let escape = gtk::ShortcutController::new();
+    escape.add_shortcut(gtk::Shortcut::new(
+        gtk::ShortcutTrigger::parse_string("Escape"),
+        Some(gtk::NamedAction::new("window.close")),
+    ));
+    let help = gtk::Window::builder()
+        .title("Keyboard shortcuts")
+        .transient_for(parent)
+        .modal(true)
+        .resizable(false)
+        .child(&grid)
+        .build();
+    help.add_controller(escape);
+    help.present();
 }
 
 /// Bottom bar with the last event, plus buttons for the last exported PDF.

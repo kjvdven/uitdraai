@@ -85,7 +85,7 @@ Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, 
 ## GUI-specificatie
 - App-id `io.github.kjvdven.uitdraai`, zodat er window rules op gemaakt kunnen worden.
 - Minimale toolbar bovenin met themadropdown, "Open in editor" (standaard-app voor Markdown, `Ctrl+Shift+O`) en een knop voor PDF-export. Toolbar en statusbalk samen verbergbaar met `--no-toolbar` of `Ctrl+T`, want op een tiling WM wil je vaak alleen de content zien.
-- Sneltoetsen: `Ctrl+O` openen (in een nieuw venster), `Ctrl+E` PDF (save-dialoog, naam en map vooraf ingevuld), `Ctrl+R` volledig herladen, `Ctrl+T` toolbar en statusbalk, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
+- Sneltoetsen: `Ctrl+O` openen (in een nieuw venster), `Ctrl+E` PDF (save-dialoog, naam en map vooraf ingevuld), `Ctrl+R` volledig herladen, `Ctrl+T` toolbar en statusbalk, `Ctrl+?` overzicht van alle sneltoetsen, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
 - Statusbalk onderaan met het laatste event (geopend, bijgewerkt met tijd en duur, export, fouten), geen popups. Na een export knoppen "Open PDF" en "Show in folder".
 - Externe links openen in de standaardbrowser; alle andere navigatie wordt geblokkeerd (via de `decide-policy`-signal).
 
