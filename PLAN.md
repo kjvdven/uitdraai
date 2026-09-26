@@ -35,7 +35,7 @@ uitdraai/
 - `comrak`: Markdown met GFM (tabellen, taaklijsten, footnotes, strikethrough).
 - `syntect`: code highlighting, gekoppeld aan comrak via de syntect-adapter, met CSS-classes.
 - `clap` (derive): CLI.
-- `notify` + `notify-debouncer-mini`: file watching (rename-tracking van `-full` is niet nodig, we watchen de map en filteren op naam).
+- `notify-debouncer-mini`: file watching (exporteert `notify` zelf; rename-tracking van `-full` is niet nodig, we watchen de map en filteren op naam).
 - `serde`, `serde_json`, `toml`: configuratie en veilig escapen richting JavaScript.
 - `directories`: config-paden volgens XDG.
 - `anyhow`: foutafhandeling.
@@ -116,7 +116,7 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] `theme.rs` met de zoekvolgorde
 - [x] `main.rs`: CLI met clap (derive), subcommando's `render` en `themes [--dump]` en de globale opties; `export` volgt bij `export.rs`
 - [x] `export.rs`: PDF via weasyprint, met tool-detectie
-- [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`
+- [x] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [ ] `--timing` vlag
 - [ ] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
 - [ ] Fixture `tests/fixtures/large.md` van ~1000 regels (koppen, tabellen, codeblokken) als vast meetdocument. Geen timing-asserts in `cargo test`; die zijn flaky

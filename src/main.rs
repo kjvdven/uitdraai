@@ -1,6 +1,7 @@
 mod export;
 mod render;
 mod theme;
+mod watch;
 
 use std::fs;
 use std::io::{self, Write};
@@ -69,6 +70,10 @@ enum Command {
         /// Output directory (default: next to the Markdown file)
         #[arg(short, long, value_name = "DIR")]
         output: Option<PathBuf>,
+
+        /// Export again after every save
+        #[arg(long)]
+        watch: bool,
     },
     /// List available themes
     Themes {
@@ -96,20 +101,19 @@ fn main() -> Result<()> {
             file,
             pdf: _,
             output,
+            watch,
         }) => {
-            let html = render_file(&file, &cli.global, theme_dir.as_deref())?;
-            let file = fs::canonicalize(&file)
-                .with_context(|| format!("cannot resolve {}", file.display()))?;
-            let base_dir = file
-                .parent()
-                .context("Markdown file has no parent directory")?;
-            let pdf = output.as_deref().unwrap_or(base_dir).join(
-                file.with_extension("pdf")
-                    .file_name()
-                    .context("no file name")?,
-            );
-            export::export_pdf(&html, base_dir, &pdf, cli.global.allow_remote)?;
-            eprintln!("wrote {}", pdf.display());
+            let export =
+                || export_file(&file, output.as_deref(), &cli.global, theme_dir.as_deref());
+            export()?;
+            if watch {
+                eprintln!("watching {}, Ctrl+C to stop", file.display());
+                watch::watch(&file, || {
+                    if let Err(err) = export() {
+                        eprintln!("Error: {err:#}");
+                    }
+                })?;
+            }
         }
         Some(Command::Themes { dump: Some(name) }) => {
             print!("{}", theme::load(&name, theme_dir.as_deref())?);
@@ -121,6 +125,27 @@ fn main() -> Result<()> {
         }
         None => bail!("the preview window is not implemented yet; use `uitdraai render`"),
     }
+    Ok(())
+}
+
+fn export_file(
+    file: &Path,
+    output: Option<&Path>,
+    global: &GlobalOpts,
+    theme_dir: Option<&Path>,
+) -> Result<()> {
+    let html = render_file(file, global, theme_dir)?;
+    let file =
+        fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
+    let base_dir = file
+        .parent()
+        .context("Markdown file has no parent directory")?;
+    let name = file.with_extension("pdf");
+    let pdf = output
+        .unwrap_or(base_dir)
+        .join(name.file_name().context("no file name")?);
+    export::export_pdf(&html, base_dir, &pdf, global.allow_remote)?;
+    eprintln!("wrote {}", pdf.display());
     Ok(())
 }
 
