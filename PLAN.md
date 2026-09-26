@@ -128,8 +128,8 @@ Een live previewvenster op Wayland.
 
 - [x] GTK4-applicatie met app-id, WebView en `load_html` met base URI
 - [x] WebView-instellingen dichtgezet volgens `CLAUDE.md`
-- [ ] Watcher en rendering in een eigen thread, resultaat via `async-channel` naar de UI, ontvangen met `glib::spawn_future_local`
-- [ ] Inhoud vervangen via JS voor reload zonder scroll-sprong
+- [x] Watcher en rendering in een eigen thread, resultaat via `async-channel` naar de UI, ontvangen met `glib::spawn_future_local`
+- [x] Inhoud vervangen via JS voor reload zonder scroll-sprong
 - [ ] Toolbar met themakiezer en PDF-exportknop, plus sneltoetsen
 - [x] Navigatiebeleid: externe links naar de browser, de rest blokkeren; contextmenu uit (reload en terug zouden van de pagina weg navigeren)
 

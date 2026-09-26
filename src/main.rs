@@ -140,16 +140,19 @@ fn main() -> Result<()> {
 
 #[cfg(feature = "gui")]
 fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<()> {
-    let html = render_file(file, global, theme_dir)?;
+    let page = render_file(file, global, theme_dir)?;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
-    let base_dir = file
-        .parent()
-        .context("Markdown file has no parent directory")?;
-    let title = file
-        .file_name()
-        .map_or_else(|| "uitdraai".into(), |name| name.to_string_lossy());
-    gui::run(html, base_dir, &title)
+    let (watched, timing, allow_html) = (file.clone(), global.timing, global.allow_html);
+    gui::run(page, file, move || {
+        let markdown = timed(timing, "read", || {
+            fs::read_to_string(&watched)
+                .with_context(|| format!("cannot read {}", watched.display()))
+        })?;
+        Ok(timed(timing, "render", || {
+            render::render_fragment(&markdown, allow_html)
+        }))
+    })
 }
 
 #[cfg(not(feature = "gui"))]
