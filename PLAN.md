@@ -146,6 +146,7 @@ Een live previewvenster op Wayland.
 - **Arch:** `gtk4 webkitgtk-6.0 pandoc python-weasyprint`
 - **Fedora:** `gtk4-devel webkitgtk6.0-devel pandoc weasyprint`
 - **Debian/Ubuntu 24.04+:** `libgtk-4-dev libwebkitgtk-6.0-dev pandoc weasyprint`
+- **NixOS:** `nix develop` (zie `flake.nix`) geeft de libs en weasyprint; Rust komt uit `mise.toml`.
 
 ## Risico's en open punten
 - **NVIDIA:** WebKitGTK kan een leeg venster tonen. Workaround: `WEBKIT_DISABLE_DMABUF_RENDERER=1`, in fase 3 als optie in `config.toml`.
