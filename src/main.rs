@@ -33,7 +33,7 @@ struct Cli {
     global: GlobalOpts,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 struct GlobalOpts {
     /// Own stylesheet (wins over --theme)
     #[arg(long, global = true, value_name = "PATH")]
@@ -143,16 +143,30 @@ fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> R
     let page = render_file(file, global, theme_dir)?;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
-    let (watched, timing, allow_html) = (file.clone(), global.timing, global.allow_html);
-    gui::run(page, file, move || {
-        let markdown = timed(timing, "read", || {
-            fs::read_to_string(&watched)
-                .with_context(|| format!("cannot read {}", watched.display()))
-        })?;
-        Ok(timed(timing, "render", || {
-            render::render_fragment(&markdown, allow_html)
-        }))
-    })
+    let render_page = {
+        let (file, global, theme_dir) =
+            (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
+        move || render_file(&file, &global, theme_dir.as_deref())
+    };
+    let render_content = {
+        let (file, timing, allow_html) = (file.clone(), global.timing, global.allow_html);
+        move || {
+            let markdown = timed(timing, "read", || {
+                fs::read_to_string(&file).with_context(|| format!("cannot read {}", file.display()))
+            })?;
+            Ok(timed(timing, "render", || {
+                render::render_fragment(&markdown, allow_html)
+            }))
+        }
+    };
+    gui::run(
+        page,
+        file,
+        gui::Hooks {
+            render_page: Box::new(render_page),
+            render_content: Box::new(render_content),
+        },
+    )
 }
 
 #[cfg(not(feature = "gui"))]
