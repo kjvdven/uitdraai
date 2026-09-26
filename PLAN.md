@@ -114,6 +114,7 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] `render.rs`: comrak (GFM), syntect met CSS-classes, rauwe HTML standaard uit
 - [x] Standaardthema's `default.css` en `print.css`, inclusief highlighting-CSS
 - [x] `theme.rs` met de zoekvolgorde
+- [x] `main.rs`: CLI met clap (derive), subcommando's `render` en `themes [--dump]` en de globale opties; `export` volgt bij `export.rs`
 - [ ] `export.rs`: PDF via weasyprint, met tool-detectie
 - [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [ ] `--timing` vlag

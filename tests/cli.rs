@@ -1,0 +1,76 @@
+use std::fs;
+use std::path::PathBuf;
+use std::process::{Command, Output};
+
+fn temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("uitdraai-cli-{}-{name}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// Runs the binary with an empty config dir, so the user's own themes don't leak in.
+fn uitdraai(config: &PathBuf, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_uitdraai"))
+        .env("XDG_CONFIG_HOME", config)
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn render_writes_page_to_stdout_without_scripts() {
+    let dir = temp_dir("render");
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi\n\n<script>alert(1)</script>").unwrap();
+
+    let out = uitdraai(&dir, &["render", md.to_str().unwrap()]);
+    let html = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    assert!(html.contains("<h1>Hi</h1>"));
+    assert!(!html.contains("<script>"));
+}
+
+#[test]
+fn render_writes_to_output_file() {
+    let dir = temp_dir("output");
+    let md = dir.join("notes.md");
+    let html = dir.join("notes.html");
+    fs::write(&md, "# Hi").unwrap();
+
+    let out = uitdraai(
+        &dir,
+        &["render", md.to_str().unwrap(), "-o", html.to_str().unwrap()],
+    );
+    assert!(out.status.success());
+    assert!(fs::read_to_string(&html).unwrap().contains("<h1>Hi</h1>"));
+}
+
+#[test]
+fn themes_lists_user_themes_and_dumps_css() {
+    let dir = temp_dir("themes");
+    let themes = dir.join("uitdraai/themes");
+    fs::create_dir_all(&themes).unwrap();
+    fs::write(themes.join("zen.css"), "/* zen */").unwrap();
+
+    let list = uitdraai(&dir, &["themes"]);
+    assert_eq!(String::from_utf8(list.stdout).unwrap(), "default\nzen\n");
+
+    let dump = uitdraai(&dir, &["themes", "--dump", "zen"]);
+    assert_eq!(String::from_utf8(dump.stdout).unwrap(), "/* zen */");
+}
+
+#[test]
+fn unknown_theme_fails() {
+    let dir = temp_dir("unknown");
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi").unwrap();
+
+    let out = uitdraai(&dir, &["render", md.to_str().unwrap(), "--theme", "nope"]);
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8(out.stderr)
+            .unwrap()
+            .contains("unknown theme 'nope'")
+    );
+}
