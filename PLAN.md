@@ -82,7 +82,7 @@ Globale opties:
 Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, dan de ingebakken thema's. `print.css` wordt altijd vóór het thema geladen, zodat een `@media print`-blok in een eigen thema de print-regels kan overschrijven.
 
 ## GUI-specificatie
-- App-id `io.github.<gebruikersnaam>.uitdraai`, zodat er window rules op gemaakt kunnen worden.
+- App-id `io.github.kjvdven.uitdraai`, zodat er window rules op gemaakt kunnen worden.
 - Minimale toolbar met themadropdown en een knop voor PDF-export. Verbergbaar met `--no-toolbar` of `Ctrl+T`, want op een tiling WM wil je vaak alleen de content zien.
 - Sneltoetsen: `Ctrl+O` openen, `Ctrl+E` PDF, `Ctrl+R` volledig herladen, `Ctrl+T` toolbar, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
 - Na een export een korte melding in het venster, geen popup.
@@ -93,15 +93,15 @@ Voorbeelden van window rules:
 ```kdl
 // niri
 window-rule {
-    match app-id="^io\\.github\\..*\\.uitdraai$"
+    match app-id="^io\\.github\\.kjvdven\\.uitdraai$"
     default-column-width { proportion 0.4; }
 }
 ```
 
 ```
 # Hyprland
-windowrulev2 = float, class:^(io\.github\..*\.uitdraai)$
-windowrulev2 = size 40% 90%, class:^(io\.github\..*\.uitdraai)$
+windowrulev2 = float, class:^(io\.github\.kjvdven\.uitdraai)$
+windowrulev2 = size 40% 90%, class:^(io\.github\.kjvdven\.uitdraai)$
 ```
 
 ## Fases
