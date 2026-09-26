@@ -117,8 +117,9 @@ Renderen en exporteren werkt vanuit de terminal.
 - [ ] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [ ] `--timing` vlag
 - [ ] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
+- [ ] Fixture `tests/fixtures/large.md` van ~1000 regels (koppen, tabellen, codeblokken) als vast meetdocument. Geen timing-asserts in `cargo test`; die zijn flaky
 
-**Klaar als:** `uitdraai export notes.md --pdf` een correcte PDF oplevert, relatieve afbeeldingen in de PDF zichtbaar zijn, en een `<script>` in het Markdown-bestand niet in de output belandt.
+**Klaar als:** `uitdraai export notes.md --pdf` een correcte PDF oplevert, relatieve afbeeldingen in de PDF zichtbaar zijn, een `<script>` in het Markdown-bestand niet in de output belandt, en `uitdraai render tests/fixtures/large.md --timing` (release build) laat zien hoe lang het renderen duurt, als nulmeting voor fase 2.
 
 ### Fase 2: GUI
 Een live previewvenster op Wayland.
@@ -127,10 +128,10 @@ Een live previewvenster op Wayland.
 - [ ] WebView-instellingen dichtgezet volgens `CLAUDE.md`
 - [ ] Watcher en rendering in een eigen thread, resultaat via `async-channel` naar de UI, ontvangen met `glib::spawn_future_local`
 - [ ] Inhoud vervangen via JS voor reload zonder scroll-sprong
-- [ ] Toolbar met themakiezer en exportknoppen, plus sneltoetsen
+- [ ] Toolbar met themakiezer en PDF-exportknop, plus sneltoetsen
 - [ ] Navigatiebeleid: externe links naar de browser, de rest blokkeren
 
-**Klaar als:** je in niri of Hyprland een bestand opent, het in je editor opslaat en de preview binnen de performancedoelen bijwerkt zonder te verspringen.
+**Klaar als:** je in niri of Hyprland een bestand opent, het in je editor opslaat en de preview bijwerkt zonder te verspringen, en `--timing` (release build, `tests/fixtures/large.md`) de performancedoelen uit `CLAUDE.md` haalt: venster met content < 300 ms, update na save < 50 ms.
 
 ### Fase 3: extra's
 - [ ] Mermaid en KaTeX vooraf in Rust naar SVG renderen, zonder JavaScript in de pagina. Welke crate of tool daarvoor geschikt is, eerst uitzoeken en voorstellen
