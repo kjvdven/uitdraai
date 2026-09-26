@@ -118,8 +118,8 @@ Renderen en exporteren werkt vanuit de terminal.
 - [x] `export.rs`: PDF via weasyprint, met tool-detectie
 - [x] `watch.rs` met directory-watch en debounce, plus `export --watch`
 - [x] `--timing` vlag
-- [ ] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
-- [ ] Fixture `tests/fixtures/large.md` van ~1000 regels (koppen, tabellen, codeblokken) als vast meetdocument. Geen timing-asserts in `cargo test`; die zijn flaky
+- [x] Tests voor rendering en themaresolutie; smoke-test voor export die wordt overgeslagen als de tools ontbreken
+- [x] Fixture `tests/fixtures/large.md` van ~1000 regels (koppen, tabellen, codeblokken) als vast meetdocument. Geen timing-asserts in `cargo test`; die zijn flaky
 
 **Klaar als:** `uitdraai export notes.md --pdf` een correcte PDF oplevert, relatieve afbeeldingen in de PDF zichtbaar zijn, een `<script>` in het Markdown-bestand niet in de output belandt, en `uitdraai render tests/fixtures/large.md --timing` (release build) laat zien hoe lang het renderen duurt, als nulmeting voor fase 2.
 
@@ -152,5 +152,6 @@ Een live previewvenster op Wayland.
 - **WeasyPrint vergt Python op het systeem.** Besloten: we accepteren dit, omdat WeasyPrint de beste ondersteuning voor print-CSS heeft en Rust geen volwassen eigen alternatief kent. WebKits `PrintOperation` en Typst zijn overwogen en afgewezen (beperkte print-CSS, respectievelijk geen CSS-styling).
 - **Preview en PDF gebruiken verschillende engines.** Zie de ontwerpkeuze "Eén renderpad". Als verschillen in de praktijk storend worden, kan een optionele `--pdf-engine webkit` worden toegevoegd.
 - **WebKitGTK is groot.** Meer dan 100 MB op schijf en ongeveer 80 tot 150 MB RAM per venster. Geaccepteerd voor nu; Blitz is het alternatief voor later (fase 3). Wie alleen de CLI wil, bouwt zonder de `gui`-feature.
+- **Koude start van syntect.** Nulmeting fase 1 (release, `tests/fixtures/large.md`): eerste render ~180 ms, daarna ~16 ms, zonder codeblokken ~1 ms. Bijna alles is eenmalige syntect-init. Past krap in het startdoel van 300 ms. Opties als het in fase 2 te traag blijkt: de `LazyLock` opwarmen in een thread parallel aan GTK-init, of `syntect-onig` in plaats van `syntect-fancy`.
 - **Mermaid en KaTeX zonder JavaScript.** Vooraf renderen naar SVG in Rust is nog niet uitgezocht. Lukt dat niet goed, dan is de terugvaloptie eigen, ingebakken scripts via `UserContentManager` (nooit scripts uit het Markdown-bestand). Beslissen bij de start van fase 3.
 - **Remote content.** Besloten: standaard uit, alleen aan via `--allow-remote`. In de preview blokkeert de CSP-meta het (zie `CLAUDE.md`). WeasyPrint krijgt `--allowed-protocols file,data` mee (met `--allow-remote` ook `https`); de CSP-meta geldt daar niet.
