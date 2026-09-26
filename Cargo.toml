@@ -1,0 +1,15 @@
+[package]
+name = "uitdraai"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[features]
+default = ["gui"]
+gui = []
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
