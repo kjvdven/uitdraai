@@ -126,12 +126,12 @@ Renderen en exporteren werkt vanuit de terminal.
 ### Fase 2: GUI
 Een live previewvenster op Wayland.
 
-- [ ] GTK4-applicatie met app-id, WebView en `load_html` met base URI
-- [ ] WebView-instellingen dichtgezet volgens `CLAUDE.md`
+- [x] GTK4-applicatie met app-id, WebView en `load_html` met base URI
+- [x] WebView-instellingen dichtgezet volgens `CLAUDE.md`
 - [ ] Watcher en rendering in een eigen thread, resultaat via `async-channel` naar de UI, ontvangen met `glib::spawn_future_local`
 - [ ] Inhoud vervangen via JS voor reload zonder scroll-sprong
 - [ ] Toolbar met themakiezer en PDF-exportknop, plus sneltoetsen
-- [ ] Navigatiebeleid: externe links naar de browser, de rest blokkeren
+- [x] Navigatiebeleid: externe links naar de browser, de rest blokkeren; contextmenu uit (reload en terug zouden van de pagina weg navigeren)
 
 **Klaar als:** je in niri of Hyprland een bestand opent, het in je editor opslaat en de preview bijwerkt zonder te verspringen, en `--timing` (release build, `tests/fixtures/large.md`) de performancedoelen uit `CLAUDE.md` haalt: venster met content < 300 ms, update na save < 50 ms.
 

@@ -1,4 +1,6 @@
 mod export;
+#[cfg(feature = "gui")]
+mod gui;
 mod render;
 mod theme;
 mod watch;
@@ -8,7 +10,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 
 use crate::render::RenderOptions;
@@ -128,9 +130,31 @@ fn main() -> Result<()> {
                 println!("{name}");
             }
         }
-        None => bail!("the preview window is not implemented yet; use `uitdraai render`"),
+        None => {
+            let file = cli.file.context("no Markdown file given")?;
+            open_preview(&file, &cli.global, theme_dir.as_deref())?;
+        }
     }
     Ok(())
+}
+
+#[cfg(feature = "gui")]
+fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<()> {
+    let html = render_file(file, global, theme_dir)?;
+    let file =
+        fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
+    let base_dir = file
+        .parent()
+        .context("Markdown file has no parent directory")?;
+    let title = file
+        .file_name()
+        .map_or_else(|| "uitdraai".into(), |name| name.to_string_lossy());
+    gui::run(html, base_dir, &title)
+}
+
+#[cfg(not(feature = "gui"))]
+fn open_preview(_file: &Path, _global: &GlobalOpts, _theme_dir: Option<&Path>) -> Result<()> {
+    anyhow::bail!("built without the preview window; use `uitdraai render` or `uitdraai export`")
 }
 
 fn export_file(
