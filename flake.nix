@@ -10,6 +10,7 @@
       libs = [
         pkgs.glib
         pkgs.gtk4
+        pkgs.pango
         pkgs.webkitgtk_6_0
       ];
     in
