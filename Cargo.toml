@@ -12,7 +12,9 @@ directories = "6.0.0"
 # webkit6 0.6.1 needs gtk::Accessible but does not enable gtk4's v4_10 feature itself.
 gtk4 = { version = "0.11.5", features = ["v4_10"], optional = true }
 notify-debouncer-mini = "0.7.0"
+serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", optional = true }
+toml = "1.1.6"
 webkit6 = { version = "0.6.1", optional = true }
 
 [features]

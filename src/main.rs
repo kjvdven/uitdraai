@@ -1,3 +1,4 @@
+mod config;
 mod export;
 #[cfg(feature = "gui")]
 mod gui;
@@ -95,7 +96,12 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+    let config_path = config::path();
+    let config = config::load(config_path.as_deref())?;
+    if cli.global.theme.is_none() {
+        cli.global.theme.clone_from(&config.theme);
+    }
     let theme_dir = theme::user_theme_dir();
     match cli.command {
         Some(Command::Render { file, output }) => {
@@ -115,7 +121,8 @@ fn main() -> Result<()> {
             watch,
         }) => {
             let export = || -> Result<()> {
-                let pdf = default_pdf_path(&file, output.as_deref())?;
+                let dir = output.as_deref().or(config.export_dir.as_deref());
+                let pdf = default_pdf_path(&file, dir)?;
                 export_file(&file, &pdf, &cli.global, theme_dir.as_deref())?;
                 eprintln!("wrote {}", pdf.display());
                 Ok(())
@@ -140,10 +147,26 @@ fn main() -> Result<()> {
         }
         None => {
             let file = cli.file.context("no Markdown file given")?;
-            open_preview(&file, &cli.global, theme_dir.as_deref(), !cli.no_toolbar)?;
+            let preview = Preview {
+                show_bars: !cli.no_toolbar,
+                config,
+                config_path,
+            };
+            open_preview(&file, &cli.global, theme_dir.as_deref(), preview)?;
         }
     }
     Ok(())
+}
+
+/// Window settings that come from outside the global flags.
+#[cfg_attr(
+    not(feature = "gui"),
+    allow(dead_code, reason = "only the preview window uses it")
+)]
+struct Preview {
+    show_bars: bool,
+    config: config::Config,
+    config_path: Option<PathBuf>,
 }
 
 #[cfg(feature = "gui")]
@@ -151,7 +174,7 @@ fn open_preview(
     file: &Path,
     global: &GlobalOpts,
     theme_dir: Option<&Path>,
-    show_bars: bool,
+    preview: Preview,
 ) -> Result<()> {
     let page = render_file(file, global, theme_dir)?;
     let file =
@@ -208,7 +231,11 @@ fn open_preview(
             Some(_) => None,
             None => Some(global.theme.clone().unwrap_or_else(|| "default".to_owned())),
         },
-        show_bars,
+        default_pdf: default_pdf_path(&file, preview.config.export_dir.as_deref())?,
+        editor: preview.config.editor,
+        disable_dmabuf: preview.config.disable_dmabuf,
+        config_path: preview.config_path,
+        show_bars: preview.show_bars,
     };
     gui::run(
         file,
@@ -239,7 +266,7 @@ fn open_preview(
     _file: &Path,
     _global: &GlobalOpts,
     _theme_dir: Option<&Path>,
-    _show_bars: bool,
+    _preview: Preview,
 ) -> Result<()> {
     anyhow::bail!("built without the preview window; use `uitdraai render` or `uitdraai export`")
 }

@@ -133,3 +133,34 @@ fn timing_logs_each_step_to_stderr() {
         assert!(stderr.contains(&format!("timing: {step} ")), "{stderr}");
     }
 }
+
+#[test]
+fn config_theme_is_used_unless_a_flag_overrides_it() {
+    let dir = temp_dir("config-theme");
+    let app = dir.join("uitdraai");
+    fs::create_dir_all(app.join("themes")).unwrap();
+    fs::write(app.join("themes/zen.css"), "/* zen */").unwrap();
+    fs::write(app.join("config.toml"), "theme = \"zen\"\n").unwrap();
+    let md = dir.join("notes.md");
+    fs::write(&md, "# Hi").unwrap();
+
+    let out = uitdraai(&dir, &["render", md.to_str().unwrap()]);
+    assert!(String::from_utf8(out.stdout).unwrap().contains("/* zen */"));
+
+    let out = uitdraai(
+        &dir,
+        &["render", md.to_str().unwrap(), "--theme", "default"],
+    );
+    assert!(!String::from_utf8(out.stdout).unwrap().contains("/* zen */"));
+}
+
+#[test]
+fn invalid_config_names_the_bad_key() {
+    let dir = temp_dir("config-typo");
+    fs::create_dir_all(dir.join("uitdraai")).unwrap();
+    fs::write(dir.join("uitdraai/config.toml"), "thme = \"zen\"\n").unwrap();
+
+    let out = uitdraai(&dir, &["themes"]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8(out.stderr).unwrap().contains("thme"));
+}

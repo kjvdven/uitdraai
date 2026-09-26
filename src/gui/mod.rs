@@ -11,7 +11,7 @@ use webkit6::{
     NavigationPolicyDecision, PolicyDecision, PolicyDecisionType, Settings, WebView, gio, glib, gtk,
 };
 
-use crate::watch;
+use crate::{config, watch};
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
 const CUSTOM_CSS_LABEL: &str = "Custom CSS";
@@ -44,6 +44,14 @@ pub struct Options {
     pub themes: Vec<String>,
     /// The theme to preselect; `None` when `--css` is in use.
     pub theme: Option<String>,
+    /// Where the export dialog starts: folder and file name.
+    pub default_pdf: PathBuf,
+    /// Command for "Open in editor"; `None` uses the desktop's default app.
+    pub editor: Option<Vec<String>>,
+    /// Works around an empty window on some GPUs (NVIDIA).
+    pub disable_dmabuf: bool,
+    /// The config file `Ctrl+,` opens.
+    pub config_path: Option<PathBuf>,
     /// Show the toolbar and status bar (`--no-toolbar` turns them off).
     pub show_bars: bool,
 }
@@ -52,6 +60,11 @@ pub struct Options {
 ///
 /// Shows the initial page first, then swaps in fresh content after every save.
 pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
+    if options.disable_dmabuf {
+        // SAFETY: no other threads exist yet; the watcher thread is spawned below and
+        // WebKit reads the variable when GTK starts.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
     let base_dir = file
         .parent()
         .context("Markdown file has no parent directory")?;
@@ -65,7 +78,6 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         |name| name.to_string_lossy().into_owned(),
     );
     let hooks = Arc::new(hooks);
-    let default_pdf = file.with_extension("pdf");
     let markdown_file = file.clone();
 
     let (tx, rx) = async_channel::unbounded();
@@ -152,7 +164,9 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             toolbar,
             hooks: Arc::clone(&hooks),
             markdown_file: markdown_file.clone(),
-            default_pdf: default_pdf.clone(),
+            default_pdf: options.default_pdf.clone(),
+            editor: options.editor.clone(),
+            config_path: options.config_path.clone(),
             theme: Rc::new(RefCell::new(options.theme.clone())),
         };
         {
@@ -200,6 +214,8 @@ struct Ctx {
     hooks: Arc<Hooks>,
     markdown_file: PathBuf,
     default_pdf: PathBuf,
+    editor: Option<Vec<String>>,
+    config_path: Option<PathBuf>,
     theme: Rc<RefCell<Option<String>>>,
 }
 
@@ -298,15 +314,52 @@ impl Ctx {
         });
     }
 
-    /// Opens the Markdown file in the desktop's default app for it.
     fn open_editor(&self, window: &gtk::ApplicationWindow) {
-        // Not gtk::FileLauncher: its portal shows a chooser of "recommended" apps that
-        // can leave out the default one the user picked for Markdown.
-        let uri = gio::File::for_path(&self.markdown_file).uri();
-        let context = WidgetExt::display(window).app_launch_context();
-        if let Err(err) = gio::AppInfo::launch_default_for_uri(&uri, Some(&context)) {
-            self.status
-                .set(&format!("Error: cannot open editor: {err}"));
+        self.open_in_editor(window, &self.markdown_file);
+    }
+
+    /// Opens the config file in the editor, creating it from a template first.
+    fn open_config(&self, window: &gtk::ApplicationWindow) {
+        let Some(path) = self.config_path.clone() else {
+            self.status.set("Error: no config directory found");
+            return;
+        };
+        if let Err(err) = config::ensure_exists(&path) {
+            self.status.set(&format!("Error: {err:#}"));
+            return;
+        }
+        if self.open_in_editor(window, &path) {
+            self.status.set("Config changes apply to new windows");
+        }
+    }
+
+    /// Opens `path` with the configured editor command, or the desktop's default app.
+    /// Returns whether the editor started; errors go to the status bar.
+    fn open_in_editor(&self, window: &gtk::ApplicationWindow, path: &Path) -> bool {
+        let result = match self.editor.as_deref() {
+            // No `--` before the path: editors differ in support, and the path is
+            // absolute, so it can't be read as an option.
+            Some([program, args @ ..]) => std::process::Command::new(program)
+                .args(args)
+                .arg(path)
+                .spawn()
+                .map(drop)
+                .with_context(|| format!("cannot start {program}")),
+            // Not gtk::FileLauncher: its portal shows a chooser of "recommended" apps that
+            // can leave out the default one the user picked.
+            _ => {
+                let uri = gio::File::for_path(path).uri();
+                let context = WidgetExt::display(window).app_launch_context();
+                gio::AppInfo::launch_default_for_uri(&uri, Some(&context)).context("no default app")
+            }
+        };
+        match result {
+            Ok(()) => true,
+            Err(err) => {
+                self.status
+                    .set(&format!("Error: cannot open editor: {err:#}"));
+                false
+            }
         }
     }
 
@@ -328,6 +381,7 @@ impl Ctx {
 const SHORTCUTS: &[(&str, &[&str], &str)] = &[
     ("win.open", &["<Control>o"], "Open another file"),
     ("win.open-editor", &["<Control><Shift>o"], "Open in editor"),
+    ("win.open-config", &["<Control>comma"], "Open config file"),
     ("win.export-pdf", &["<Control>e"], "Export PDF"),
     ("win.reload", &["<Control>r"], "Reload page"),
     (
@@ -367,6 +421,7 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
         action("export-pdf", Ctx::export_pdf),
         action("open", Ctx::open),
         action("open-editor", Ctx::open_editor),
+        action("open-config", Ctx::open_config),
         action("toggle-bars", |ctx, _| ctx.toggle_bars()),
         action("zoom-in", |ctx, _| ctx.zoom(Some(1.1))),
         action("zoom-out", |ctx, _| ctx.zoom(Some(1.0 / 1.1))),

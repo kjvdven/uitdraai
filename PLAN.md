@@ -6,7 +6,7 @@ Een lichte Markdown-previewer voor Linux, Wayland-first (niri, Hyprland), geschr
 Werkafspraken (eenvoud, security, performance, Rust-praktijken) staan in `CLAUDE.md`.
 
 ## Buiten scope (v1)
-Geen editor, geen tabs of meerdere bestanden, geen plugins, geen scroll-sync met een editor en geen X11-specifieke workarounds. Mermaid en KaTeX komen pas in fase 3.
+Geen editor, geen tabs of meerdere bestanden, geen plugins, geen scroll-sync met een editor, geen X11-specifieke workarounds en geen automatische licht/donker-modus (standaard wit; een donkere variant is een eigen thema). Mermaid en KaTeX komen pas in fase 3.
 
 ## Architectuur
 Eén crate met een `gui`-feature, zodat de CLI ook bouwt zonder WebKit-dependencies.
@@ -25,7 +25,7 @@ uitdraai/
     ├── theme.rs        # thema's zoeken: --css, config-dir, ingebakken
     ├── export.rs       # PDF (weasyprint); DOCX/ODT via pandoc in fase 3
     ├── watch.rs        # file watching met debounce
-    ├── config.rs       # ~/.config/uitdraai/config.toml (fase 3)
+    ├── config.rs       # ~/.config/uitdraai/config.toml
     └── gui/            # alleen met feature "gui"
         ├── mod.rs
         └── window.rs
@@ -85,7 +85,7 @@ Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, 
 ## GUI-specificatie
 - App-id `io.github.kjvdven.uitdraai`, zodat er window rules op gemaakt kunnen worden.
 - Minimale toolbar bovenin met themadropdown, "Open in editor" (standaard-app voor Markdown, `Ctrl+Shift+O`) en een knop voor PDF-export. Toolbar en statusbalk samen verbergbaar met `--no-toolbar` of `Ctrl+T`, want op een tiling WM wil je vaak alleen de content zien.
-- Sneltoetsen: `Ctrl+O` openen (in een nieuw venster), `Ctrl+E` PDF (save-dialoog, naam en map vooraf ingevuld), `Ctrl+R` volledig herladen, `Ctrl+T` toolbar en statusbalk, `Ctrl+?` overzicht van alle sneltoetsen, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
+- Sneltoetsen: `Ctrl+O` openen (in een nieuw venster), `Ctrl+E` PDF (save-dialoog, naam en map vooraf ingevuld), `Ctrl+R` volledig herladen, `Ctrl+T` toolbar en statusbalk, `Ctrl+,` config.toml openen (wordt eerst aangemaakt vanaf een sjabloon), `Ctrl+?` overzicht van alle sneltoetsen, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
 - Statusbalk onderaan met het laatste event (geopend, bijgewerkt met tijd en duur, export, fouten), geen popups. Na een export knoppen "Open PDF" en "Show in folder".
 - Externe links openen in de standaardbrowser; alle andere navigatie wordt geblokkeerd (via de `decide-policy`-signal).
 
@@ -138,9 +138,8 @@ Een live previewvenster op Wayland.
 ### Fase 3: extra's
 - [ ] Mermaid en KaTeX vooraf in Rust naar SVG renderen, zonder JavaScript in de pagina. Welke crate of tool daarvoor geschikt is, eerst uitzoeken en voorstellen
 - [ ] Blitz heroverwegen als lichtere viewer (pure Rust, geen WebKit, geen webproces). Pas zinvol als de CSS die de thema's gebruiken daar goed wordt ondersteund; de roadmap van Blitz eerst naast de thema's leggen
-- [ ] Automatisch licht/donker volgen via `prefers-color-scheme`
 - [ ] DOCX/ODT-export via pandoc (`--docx`, `--odt`, `--reference-doc`), zie de ontwerpkeuze "DOCX/ODT pas in fase 3". Pandoc's `--sandbox` voor remote content uitzoeken
-- [ ] `config.toml` voor standaardthema, exportmap, reference-doc, een eigen editor-commando (bijv. `ghostty -e hx`, zodat ook terminal-editors werken) en de NVIDIA-workaround. Die zet `WEBKIT_DISABLE_DMABUF_RENDERER` als allereerste stap in `main()`, vóór GTK-init en voordat er threads draaien; `std::env::set_var` is `unsafe` in edition 2024, dus met een `// SAFETY:`-comment
+- [x] `config.toml` met `theme`, `export_dir`, `editor` (lijst, bijv. `["ghostty", "-e", "hx"]`, zodat ook terminal-editors werken) en `disable_dmabuf` (NVIDIA). Die laatste zet `WEBKIT_DISABLE_DMABUF_RENDERER` in `gui::run` vóór GTK start en vóór de watcher-thread, met een `// SAFETY:`-comment. `reference-doc` volgt met DOCX
 
 ## Dependencies per distro
 - **Arch:** `gtk4 webkitgtk-6.0 pandoc python-weasyprint`
