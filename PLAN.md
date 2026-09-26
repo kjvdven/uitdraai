@@ -35,7 +35,7 @@ uitdraai/
 - `comrak`: Markdown met GFM (tabellen, taaklijsten, footnotes, strikethrough).
 - `syntect`: code highlighting, gekoppeld aan comrak via de syntect-adapter, met CSS-classes.
 - `clap` (derive): CLI.
-- `notify` + `notify-debouncer-full`: file watching.
+- `notify` + `notify-debouncer-mini`: file watching (rename-tracking van `-full` is niet nodig, we watchen de map en filteren op naam).
 - `serde`, `serde_json`, `toml`: configuratie en veilig escapen richting JavaScript.
 - `directories`: config-paden volgens XDG.
 - `anyhow`: foutafhandeling.
@@ -138,7 +138,7 @@ Een live previewvenster op Wayland.
 - [ ] Blitz heroverwegen als lichtere viewer (pure Rust, geen WebKit, geen webproces). Pas zinvol als de CSS die de thema's gebruiken daar goed wordt ondersteund; de roadmap van Blitz eerst naast de thema's leggen
 - [ ] Automatisch licht/donker volgen via `prefers-color-scheme`
 - [ ] DOCX/ODT-export via pandoc (`--docx`, `--odt`, `--reference-doc`), zie de ontwerpkeuze "DOCX/ODT pas in fase 3". Pandoc's `--sandbox` voor remote content uitzoeken
-- [ ] `config.toml` voor standaardthema, exportmap, reference-doc en de NVIDIA-workaround
+- [ ] `config.toml` voor standaardthema, exportmap, reference-doc en de NVIDIA-workaround. Die zet `WEBKIT_DISABLE_DMABUF_RENDERER` als allereerste stap in `main()`, vóór GTK-init en voordat er threads draaien; `std::env::set_var` is `unsafe` in edition 2024, dus met een `// SAFETY:`-comment
 
 ## Dependencies per distro
 - **Arch:** `gtk4 webkitgtk-6.0 pandoc python-weasyprint`
