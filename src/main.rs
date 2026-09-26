@@ -29,6 +29,10 @@ struct Cli {
     /// Markdown file to open in the preview window
     file: Option<PathBuf>,
 
+    /// Start the preview window without toolbar and status bar (Ctrl+T shows them)
+    #[arg(long)]
+    no_toolbar: bool,
+
     #[command(flatten)]
     global: GlobalOpts,
 }
@@ -136,21 +140,39 @@ fn main() -> Result<()> {
         }
         None => {
             let file = cli.file.context("no Markdown file given")?;
-            open_preview(&file, &cli.global, theme_dir.as_deref())?;
+            open_preview(&file, &cli.global, theme_dir.as_deref(), !cli.no_toolbar)?;
         }
     }
     Ok(())
 }
 
 #[cfg(feature = "gui")]
-fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<()> {
+fn open_preview(
+    file: &Path,
+    global: &GlobalOpts,
+    theme_dir: Option<&Path>,
+    show_bars: bool,
+) -> Result<()> {
     let page = render_file(file, global, theme_dir)?;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
     let render_page = {
         let (file, global, theme_dir) =
             (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
-        move || render_file(&file, &global, theme_dir.as_deref())
+        move |theme: Option<&str>| {
+            render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())
+        }
+    };
+    let theme_css = {
+        let (global, theme_dir) = (global.clone(), theme_dir.map(Path::to_owned));
+        move |theme: Option<&str>| {
+            let global = with_theme(&global, theme);
+            theme::resolve(
+                global.css.as_deref(),
+                global.theme.as_deref(),
+                theme_dir.as_deref(),
+            )
+        }
     };
     let render_content = {
         let (file, timing, allow_html) = (file.clone(), global.timing, global.allow_html);
@@ -166,17 +188,34 @@ fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> R
     let export_pdf = {
         let (file, global, theme_dir) =
             (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
-        move |pdf: &Path| export_file(&file, pdf, &global, theme_dir.as_deref())
+        move |pdf: &Path, theme: Option<&str>| {
+            export_file(
+                &file,
+                pdf,
+                &with_theme(&global, theme),
+                theme_dir.as_deref(),
+            )
+        }
     };
     let open = {
         let global = global.clone();
         move |file: &Path| spawn_preview(file, &global)
     };
-    gui::run(
+    let options = gui::Options {
         page,
+        themes: theme::list(theme_dir)?,
+        theme: match global.css {
+            Some(_) => None,
+            None => Some(global.theme.clone().unwrap_or_else(|| "default".to_owned())),
+        },
+        show_bars,
+    };
+    gui::run(
         file,
+        options,
         gui::Hooks {
             render_page: Box::new(render_page),
+            theme_css: Box::new(theme_css),
             render_content: Box::new(render_content),
             export_pdf: Box::new(export_pdf),
             open: Box::new(open),
@@ -184,8 +223,24 @@ fn open_preview(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> R
     )
 }
 
+/// The options with `theme` picked in the window, which replaces `--css` and `--theme`.
+#[cfg(feature = "gui")]
+fn with_theme(global: &GlobalOpts, theme: Option<&str>) -> GlobalOpts {
+    let mut global = global.clone();
+    if let Some(theme) = theme {
+        global.css = None;
+        global.theme = Some(theme.to_owned());
+    }
+    global
+}
+
 #[cfg(not(feature = "gui"))]
-fn open_preview(_file: &Path, _global: &GlobalOpts, _theme_dir: Option<&Path>) -> Result<()> {
+fn open_preview(
+    _file: &Path,
+    _global: &GlobalOpts,
+    _theme_dir: Option<&Path>,
+    _show_bars: bool,
+) -> Result<()> {
     anyhow::bail!("built without the preview window; use `uitdraai render` or `uitdraai export`")
 }
 

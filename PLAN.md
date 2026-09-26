@@ -61,7 +61,7 @@ Nieuwe crates alleen na overleg (zie `CLAUDE.md`).
 
 **Watch de map, niet het bestand.** Veel editors (Vim, Helix) slaan atomisch op via rename, waardoor een watch op het bestand zelf na de eerste save stilvalt. Watch daarom de parent directory, filter op bestandsnaam en debounce met ongeveer 100 ms.
 
-**Live reload zonder flikkeren.** Bij een wijziging wordt niet de hele pagina herladen, alleen de inhoud van `#content` via `evaluate_javascript`. De HTML wordt daarbij geëscaped met `serde_json::to_string`. De scrollpositie blijft zo vanzelf behouden. Een volledige reload is alleen nodig bij een themawissel.
+**Live reload zonder flikkeren.** Bij een wijziging wordt niet de hele pagina herladen, alleen de inhoud van `#content` via `evaluate_javascript`. De HTML wordt daarbij geëscaped met `serde_json::to_string`. De scrollpositie blijft zo vanzelf behouden. Een themawissel vervangt op dezelfde manier alleen de inhoud van `<style>` en bewaart de scrollpositie als verhouding. Alleen `Ctrl+R` herlaadt de hele pagina.
 
 ## CLI-specificatie
 ```
@@ -84,7 +84,7 @@ Zoekvolgorde voor thema's: `--css`, dan `~/.config/uitdraai/themes/<naam>.css`, 
 
 ## GUI-specificatie
 - App-id `io.github.kjvdven.uitdraai`, zodat er window rules op gemaakt kunnen worden.
-- Minimale toolbar met themadropdown en een knop voor PDF-export. Verbergbaar met `--no-toolbar` of `Ctrl+T`, want op een tiling WM wil je vaak alleen de content zien.
+- Minimale toolbar bovenin met themadropdown en een knop voor PDF-export. Toolbar en statusbalk samen verbergbaar met `--no-toolbar` of `Ctrl+T`, want op een tiling WM wil je vaak alleen de content zien.
 - Sneltoetsen: `Ctrl+O` openen (in een nieuw venster), `Ctrl+E` PDF (save-dialoog, naam en map vooraf ingevuld), `Ctrl+R` volledig herladen, `Ctrl+T` toolbar en statusbalk, `Ctrl+Q` sluiten, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
 - Statusbalk onderaan met het laatste event (geopend, bijgewerkt met tijd en duur, export, fouten), geen popups. Na een export knoppen "Open PDF" en "Show in folder".
 - Externe links openen in de standaardbrowser; alle andere navigatie wordt geblokkeerd (via de `decide-policy`-signal).
@@ -130,7 +130,7 @@ Een live previewvenster op Wayland.
 - [x] WebView-instellingen dichtgezet volgens `CLAUDE.md`
 - [x] Watcher en rendering in een eigen thread, resultaat via `async-channel` naar de UI, ontvangen met `glib::spawn_future_local`
 - [x] Inhoud vervangen via JS voor reload zonder scroll-sprong
-- [ ] Toolbar met themakiezer en PDF-exportknop, plus sneltoetsen
+- [x] Toolbar met themakiezer en PDF-exportknop, plus sneltoetsen
 - [x] Navigatiebeleid: externe links naar de browser, de rest blokkeren; contextmenu uit (reload en terug zouden van de pagina weg navigeren)
 
 **Klaar als:** je in niri of Hyprland een bestand opent, het in je editor opslaat en de preview bijwerkt zonder te verspringen, en `--timing` (release build, `tests/fixtures/large.md`) de performancedoelen uit `CLAUDE.md` haalt: venster met content < 300 ms, update na save < 50 ms.

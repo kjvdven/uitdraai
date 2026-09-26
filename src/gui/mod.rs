@@ -14,25 +14,44 @@ use webkit6::{
 use crate::watch;
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
+const CUSTOM_CSS_LABEL: &str = "Custom CSS";
 
+type PageHook = Box<dyn Fn(Option<&str>) -> Result<String> + Send + Sync>;
+type ExportHook = Box<dyn Fn(&Path, Option<&str>) -> Result<()> + Send + Sync>;
 type PathHook = Box<dyn Fn(&Path) -> Result<()> + Send + Sync>;
 
 /// Work the window hands off to the rest of the app. Rendering and export run off the GTK thread.
+///
+/// A theme of `None` means the stylesheet from the command line (`--css` or `--theme`).
 pub struct Hooks {
-    /// Renders the complete page, for the first load and `Ctrl+R`.
-    pub render_page: Box<dyn Fn() -> Result<String> + Send + Sync>,
+    /// Renders the complete page, for `Ctrl+R`.
+    pub render_page: PageHook,
+    /// Returns the stylesheet for a theme, for switching themes in place.
+    pub theme_css: PageHook,
     /// Renders only the `#content` HTML, for live reload after a save.
     pub render_content: Box<dyn Fn() -> Result<String> + Send + Sync>,
     /// Exports the file to PDF at the given path.
-    pub export_pdf: PathHook,
+    pub export_pdf: ExportHook,
     /// Opens another Markdown file in a new window.
     pub open: PathHook,
 }
 
+/// What the window starts with.
+pub struct Options {
+    /// The page rendered with the command-line stylesheet.
+    pub page: String,
+    /// Theme names for the dropdown.
+    pub themes: Vec<String>,
+    /// The theme to preselect; `None` when `--css` is in use.
+    pub theme: Option<String>,
+    /// Show the toolbar and status bar (`--no-toolbar` turns them off).
+    pub show_bars: bool,
+}
+
 /// Opens the preview window for `file` and blocks until it is closed.
 ///
-/// Shows `page` first, then swaps in fresh content after every save.
-pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
+/// Shows the initial page first, then swaps in fresh content after every save.
+pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
     let base_dir = file
         .parent()
         .context("Markdown file has no parent directory")?;
@@ -69,12 +88,48 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
         .build();
     app.connect_activate(move |app| {
         let preview = Preview::new(&base_uri);
-        preview.load(&page);
-
+        preview.load(&options.page);
         let status = StatusBar::new();
         status.set(&format!("Opened {}", clock()));
+
+        // `None` stands for the --css stylesheet, listed first when it is in use.
+        let mut choices: Vec<Option<String>> = options.themes.iter().cloned().map(Some).collect();
+        if options.theme.is_none() {
+            choices.insert(0, None);
+        }
+        let selected = choices
+            .iter()
+            .position(|choice| *choice == options.theme)
+            .unwrap_or(0);
+        let labels: Vec<&str> = choices
+            .iter()
+            .map(|choice| choice.as_deref().unwrap_or(CUSTOM_CSS_LABEL))
+            .collect();
+        let theme_picker = gtk::DropDown::from_strings(&labels);
+        theme_picker.set_selected(u32::try_from(selected).unwrap_or(0));
+        theme_picker.set_tooltip_text(Some("Theme"));
+        let export_button = gtk::Button::builder()
+            .label("Export PDF")
+            .action_name("win.export-pdf")
+            .hexpand(true)
+            .halign(gtk::Align::End)
+            .build();
+        let toolbar = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(8)
+            .margin_start(12)
+            .margin_end(12)
+            .margin_top(6)
+            .margin_bottom(6)
+            .build();
+        toolbar.append(&theme_picker);
+        toolbar.append(&export_button);
+
+        toolbar.set_visible(options.show_bars);
+        status.root.set_visible(options.show_bars);
         preview.webview.set_vexpand(true);
         let layout = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        layout.append(&toolbar);
         layout.append(&preview.webview);
         layout.append(&status.root);
 
@@ -85,7 +140,25 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
             .default_height(1000)
             .child(&layout)
             .build();
-        add_shortcuts(app, &window, &preview, &status, &hooks, &default_pdf);
+        let ctx = Ctx {
+            preview,
+            status,
+            toolbar,
+            hooks: Arc::clone(&hooks),
+            default_pdf: default_pdf.clone(),
+            theme: Rc::new(RefCell::new(options.theme.clone())),
+        };
+        {
+            let ctx = ctx.clone();
+            theme_picker.connect_selected_notify(move |picker| {
+                let index = usize::try_from(picker.selected()).unwrap_or(0);
+                if let Some(choice) = choices.get(index) {
+                    ctx.theme.replace(choice.clone());
+                    ctx.apply_theme();
+                }
+            });
+        }
+        add_shortcuts(app, &window, &ctx);
         window.present();
 
         let rx = rx.clone();
@@ -93,10 +166,11 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
             while let Ok((content, took)) = rx.recv().await {
                 match content {
                     Ok(content) => {
-                        preview.replace_content(&content);
-                        status.set(&format!("Updated {} · {}", clock(), millis(took)));
+                        ctx.preview.replace_content(&content);
+                        ctx.status
+                            .set(&format!("Updated {} · {}", clock(), millis(took)));
                     }
-                    Err(err) => status.set(&format!("Error: {err:#}")),
+                    Err(err) => ctx.status.set(&format!("Error: {err:#}")),
                 }
             }
         });
@@ -110,130 +184,141 @@ pub fn run(page: String, file: PathBuf, hooks: Hooks) -> Result<()> {
     Ok(())
 }
 
-fn add_shortcuts(
-    app: &gtk::Application,
-    window: &gtk::ApplicationWindow,
-    preview: &Preview,
-    status: &StatusBar,
-    hooks: &Arc<Hooks>,
-    default_pdf: &Path,
-) {
-    let reload = {
-        let (preview, status, hooks) = (preview.clone(), status.clone(), Arc::clone(hooks));
-        gio::ActionEntry::builder("reload")
-            .activate(move |_: &gtk::ApplicationWindow, _, _| {
-                let (preview, status, hooks) =
-                    (preview.clone(), status.clone(), Arc::clone(&hooks));
-                glib::spawn_future_local(async move {
-                    match gio::spawn_blocking(move || (hooks.render_page)()).await {
-                        Ok(Ok(page)) => {
-                            preview.load(&page);
-                            status.set(&format!("Reloaded {}", clock()));
-                        }
-                        Ok(Err(err)) => status.set(&format!("Error: {err:#}")),
-                        Err(_) => status.set("Error: rendering panicked"),
-                    }
-                });
-            })
-            .build()
-    };
-    let export_pdf = {
-        let (status, hooks, default_pdf) =
-            (status.clone(), Arc::clone(hooks), default_pdf.to_owned());
-        gio::ActionEntry::builder("export-pdf")
-            .activate(move |window: &gtk::ApplicationWindow, _, _| {
-                let mut dialog = gtk::FileDialog::builder().title("Export PDF");
-                if let Some(dir) = default_pdf.parent() {
-                    dialog = dialog.initial_folder(&gio::File::for_path(dir));
-                }
-                if let Some(name) = default_pdf.file_name() {
-                    dialog = dialog.initial_name(name.to_string_lossy().as_ref());
-                }
-                let (status, hooks) = (status.clone(), Arc::clone(&hooks));
-                dialog
-                    .build()
-                    .save(Some(window), None::<&gio::Cancellable>, move |result| {
-                        // Err also means the dialog was cancelled; nothing to report then.
-                        let Some(pdf) = result.ok().and_then(|file| file.path()) else {
-                            return;
-                        };
-                        status.set("Exporting PDF…");
-                        glib::spawn_future_local(async move {
-                            let target = pdf.clone();
-                            match gio::spawn_blocking(move || (hooks.export_pdf)(&target)).await {
-                                Ok(Ok(())) => {
-                                    status.set(&format!(
-                                        "PDF saved {}: {}",
-                                        clock(),
-                                        pdf.display()
-                                    ));
-                                    status.show_pdf(pdf);
-                                }
-                                Ok(Err(err)) => status.set(&format!("Error: {err:#}")),
-                                Err(_) => status.set("Error: export panicked"),
-                            }
-                        });
-                    });
-            })
-            .build()
-    };
-    let open = {
-        let (status, hooks) = (status.clone(), Arc::clone(hooks));
-        gio::ActionEntry::builder("open")
-            .activate(move |window: &gtk::ApplicationWindow, _, _| {
-                let filter = gtk::FileFilter::new();
-                filter.set_name(Some("Markdown"));
-                filter.add_suffix("md");
-                filter.add_suffix("markdown");
-                let filters = gio::ListStore::new::<gtk::FileFilter>();
-                filters.append(&filter);
-                let dialog = gtk::FileDialog::builder()
-                    .title("Open Markdown file")
-                    .filters(&filters)
-                    .build();
-                let (status, hooks) = (status.clone(), Arc::clone(&hooks));
-                dialog.open(Some(window), None::<&gio::Cancellable>, move |result| {
-                    // Err also means the dialog was cancelled; nothing to report then.
-                    let Some(path) = result.ok().and_then(|file| file.path()) else {
-                        return;
-                    };
-                    if let Err(err) = (hooks.open)(&path) {
-                        status.set(&format!("Error: {err:#}"));
-                    }
-                });
-            })
-            .build()
-    };
-    let toggle_bars = {
-        let status = status.clone();
-        gio::ActionEntry::builder("toggle-bars")
-            .activate(move |_: &gtk::ApplicationWindow, _, _| {
-                status.root.set_visible(!status.root.is_visible());
-            })
-            .build()
-    };
-    let zoom = |name: &str, factor: Option<f64>| {
-        let webview = preview.webview.clone();
-        gio::ActionEntry::builder(name)
-            .activate(move |_: &gtk::ApplicationWindow, _, _| {
-                let level = factor.map_or(1.0, |f| (webview.zoom_level() * f).clamp(0.3, 5.0));
-                webview.set_zoom_level(level);
-            })
-            .build()
-    };
-    let close = gio::ActionEntry::builder("close")
-        .activate(|window: &gtk::ApplicationWindow, _, _| window.close())
-        .build();
+/// Everything the window's actions work on.
+#[derive(Clone)]
+struct Ctx {
+    preview: Preview,
+    status: StatusBar,
+    toolbar: gtk::Box,
+    hooks: Arc<Hooks>,
+    default_pdf: PathBuf,
+    theme: Rc<RefCell<Option<String>>>,
+}
 
+impl Ctx {
+    /// Renders the whole page again with the current theme; loses the scroll position.
+    fn reload(&self) {
+        let ctx = self.clone();
+        let theme = self.theme.borrow().clone();
+        glib::spawn_future_local(async move {
+            let hooks = Arc::clone(&ctx.hooks);
+            match gio::spawn_blocking(move || (hooks.render_page)(theme.as_deref())).await {
+                Ok(Ok(page)) => {
+                    ctx.preview.load(&page);
+                    ctx.status.set(&format!("Reloaded {}", clock()));
+                }
+                Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
+                Err(_) => ctx.status.set("Error: rendering panicked"),
+            }
+        });
+    }
+
+    /// Restyles the page with the current theme without reloading it.
+    fn apply_theme(&self) {
+        let ctx = self.clone();
+        let theme = self.theme.borrow().clone();
+        glib::spawn_future_local(async move {
+            let hooks = Arc::clone(&ctx.hooks);
+            let name = theme.clone().unwrap_or_else(|| CUSTOM_CSS_LABEL.to_owned());
+            match gio::spawn_blocking(move || (hooks.theme_css)(theme.as_deref())).await {
+                Ok(Ok(css)) => {
+                    ctx.preview.replace_css(&css);
+                    ctx.status.set(&format!("Theme {name} {}", clock()));
+                }
+                Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
+                Err(_) => ctx.status.set("Error: loading theme panicked"),
+            }
+        });
+    }
+
+    /// Asks where to save, then exports with the current theme.
+    fn export_pdf(&self, window: &gtk::ApplicationWindow) {
+        let mut dialog = gtk::FileDialog::builder().title("Export PDF");
+        if let Some(dir) = self.default_pdf.parent() {
+            dialog = dialog.initial_folder(&gio::File::for_path(dir));
+        }
+        if let Some(name) = self.default_pdf.file_name() {
+            dialog = dialog.initial_name(name.to_string_lossy().as_ref());
+        }
+        let ctx = self.clone();
+        dialog
+            .build()
+            .save(Some(window), None::<&gio::Cancellable>, move |result| {
+                // Err also means the dialog was cancelled; nothing to report then.
+                let Some(pdf) = result.ok().and_then(|file| file.path()) else {
+                    return;
+                };
+                ctx.status.set("Exporting PDF…");
+                let theme = ctx.theme.borrow().clone();
+                glib::spawn_future_local(async move {
+                    let (hooks, target) = (Arc::clone(&ctx.hooks), pdf.clone());
+                    let export = move || (hooks.export_pdf)(&target, theme.as_deref());
+                    match gio::spawn_blocking(export).await {
+                        Ok(Ok(())) => {
+                            ctx.status
+                                .set(&format!("PDF saved {}: {}", clock(), pdf.display()));
+                            ctx.status.show_pdf(pdf);
+                        }
+                        Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
+                        Err(_) => ctx.status.set("Error: export panicked"),
+                    }
+                });
+            });
+    }
+
+    /// Asks for a Markdown file and opens it in a new window.
+    fn open(&self, window: &gtk::ApplicationWindow) {
+        let filter = gtk::FileFilter::new();
+        filter.set_name(Some("Markdown"));
+        filter.add_suffix("md");
+        filter.add_suffix("markdown");
+        let filters = gio::ListStore::new::<gtk::FileFilter>();
+        filters.append(&filter);
+        let dialog = gtk::FileDialog::builder()
+            .title("Open Markdown file")
+            .filters(&filters)
+            .build();
+        let ctx = self.clone();
+        dialog.open(Some(window), None::<&gio::Cancellable>, move |result| {
+            // Err also means the dialog was cancelled; nothing to report then.
+            let Some(path) = result.ok().and_then(|file| file.path()) else {
+                return;
+            };
+            if let Err(err) = (ctx.hooks.open)(&path) {
+                ctx.status.set(&format!("Error: {err:#}"));
+            }
+        });
+    }
+
+    fn toggle_bars(&self) {
+        let visible = !self.toolbar.is_visible();
+        self.toolbar.set_visible(visible);
+        self.status.root.set_visible(visible);
+    }
+
+    fn zoom(&self, factor: Option<f64>) {
+        let webview = &self.preview.webview;
+        let level = factor.map_or(1.0, |f| (webview.zoom_level() * f).clamp(0.3, 5.0));
+        webview.set_zoom_level(level);
+    }
+}
+
+fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &Ctx) {
+    let action = |name: &str, run: fn(&Ctx, &gtk::ApplicationWindow)| {
+        let ctx = ctx.clone();
+        gio::ActionEntry::builder(name)
+            .activate(move |window: &gtk::ApplicationWindow, _, _| run(&ctx, window))
+            .build()
+    };
     window.add_action_entries([
-        reload,
-        export_pdf,
-        open,
-        toggle_bars,
-        zoom("zoom-in", Some(1.1)),
-        zoom("zoom-out", Some(1.0 / 1.1)),
-        zoom("zoom-reset", None),
-        close,
+        action("reload", |ctx, _| ctx.reload()),
+        action("export-pdf", Ctx::export_pdf),
+        action("open", Ctx::open),
+        action("toggle-bars", |ctx, _| ctx.toggle_bars()),
+        action("zoom-in", |ctx, _| ctx.zoom(Some(1.1))),
+        action("zoom-out", |ctx, _| ctx.zoom(Some(1.0 / 1.1))),
+        action("zoom-reset", |ctx, _| ctx.zoom(None)),
+        action("close", |_, window| window.close()),
     ]);
     app.set_accels_for_action("win.reload", &["<Control>r"]);
     app.set_accels_for_action("win.export-pdf", &["<Control>e"]);
@@ -408,18 +493,33 @@ impl Preview {
         let Ok(literal) = serde_json::to_string(content) else {
             return;
         };
-        let script = format!("document.getElementById('content').innerHTML = {literal};");
-        self.webview.evaluate_javascript(
-            &script,
-            None,
-            None,
-            None::<&gio::Cancellable>,
-            |result| {
+        self.run_script(&format!(
+            "document.getElementById('content').innerHTML = {literal};"
+        ));
+    }
+
+    /// Swaps the page's stylesheet and keeps roughly the same place in the document.
+    fn replace_css(&self, css: &str) {
+        let Ok(literal) = serde_json::to_string(css) else {
+            return;
+        };
+        // A new theme changes the page height, so keep the relative position, not pixels.
+        // The block scope lets the script run again without redeclaring its consts.
+        self.run_script(&format!(
+            "{{ const room = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
+               const at = scrollY / room();
+               document.querySelector('head style').textContent = {literal};
+               scrollTo(0, at * room()); }}"
+        ));
+    }
+
+    fn run_script(&self, script: &str) {
+        self.webview
+            .evaluate_javascript(script, None, None, None::<&gio::Cancellable>, |result| {
                 if let Err(err) = result {
                     eprintln!("Error: cannot update preview: {err}");
                 }
-            },
-        );
+            });
     }
 }
 
