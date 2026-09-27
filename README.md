@@ -1,3 +1,5 @@
+<img src="data/icons/hicolor/scalable/apps/io.github.kjvdven.uitdraai.svg" alt="" width="96" align="right">
+
 # uitdraai
 
 Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live preview in a small GTK4/WebKit window, PDF export through WeasyPrint. The CLI works without the GUI.
