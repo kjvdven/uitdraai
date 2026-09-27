@@ -1,4 +1,4 @@
-<img src="data/icons/hicolor/scalable/apps/io.github.kjvdven.uitdraai.svg" alt="" width="96" align="right">
+<img src="data/icons/hicolor/scalable/apps/io.github.kjvdven.uitdraai.svg" alt="" width="96">
 
 # uitdraai
 
