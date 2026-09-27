@@ -31,6 +31,7 @@
         '';
         postInstall = ''
           install -Dm644 data/io.github.kjvdven.uitdraai.desktop -t $out/share/applications
+          cp -r data/icons $out/share/icons
         '';
       };
 

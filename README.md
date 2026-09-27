@@ -1,3 +1,5 @@
+<img src="data/icons/hicolor/scalable/apps/io.github.kjvdven.uitdraai.svg" alt="" width="96" align="right">
+
 # uitdraai
 
 Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live preview in a small GTK4/WebKit window, PDF export through WeasyPrint. The CLI works without the GUI.
@@ -27,10 +29,11 @@ cargo install --git https://github.com/kjvdven/uitdraai
 cargo install --git https://github.com/kjvdven/uitdraai --no-default-features
 ```
 
-For your launcher and "Open with" on Markdown files, install the desktop entry from a checkout. If `~/.cargo/bin` isn't on your session's `PATH`, put the full path in its `Exec=` line.
+For your launcher and "Open with" on Markdown files, install the desktop entry and icons from a checkout. If `~/.cargo/bin` isn't on your session's `PATH`, put the full path in its `Exec=` line.
 
 ```sh
 install -Dm644 data/io.github.kjvdven.uitdraai.desktop -t ~/.local/share/applications/
+cp -r data/icons ~/.local/share/
 ```
 
 ## Usage

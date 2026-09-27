@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=uitdraai
+Name=Uitdraai
 Comment=Markdown preview with PDF export
 Exec=uitdraai %f
+Icon=io.github.kjvdven.uitdraai
 MimeType=text/markdown;text/x-markdown;
 Terminal=false
 Categories=Office;Viewer;
