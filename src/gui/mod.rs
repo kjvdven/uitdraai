@@ -48,23 +48,69 @@ pub struct Options {
     pub default_pdf: PathBuf,
     /// Command for "Open in editor"; `None` uses the desktop's default app.
     pub editor: Option<Vec<String>>,
-    /// Works around an empty window on some GPUs (NVIDIA).
-    pub disable_dmabuf: bool,
     /// The config file `Ctrl+,` opens.
     pub config_path: Option<PathBuf>,
     /// Show the toolbar and status bar (`--no-toolbar` turns them off).
     pub show_bars: bool,
 }
 
+/// Sets up the process for WebKit. Call first, before GTK starts or any thread exists.
+///
+/// `disable_dmabuf` works around an empty window on some GPUs (NVIDIA).
+pub fn prepare(disable_dmabuf: bool) {
+    if disable_dmabuf {
+        // SAFETY: the caller runs this before GTK starts or any thread is spawned,
+        // so nothing can read the environment concurrently.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
+}
+
+/// Asks for a Markdown file before any window exists; `None` when cancelled.
+pub fn pick_file() -> Result<Option<PathBuf>> {
+    let picked = Rc::new(RefCell::new(None));
+    let app = gtk::Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    let result = Rc::clone(&picked);
+    app.connect_activate(move |app| {
+        // There is no window yet, so hold the app open until the dialog answers.
+        let hold = app.hold();
+        let result = Rc::clone(&result);
+        markdown_dialog().open(
+            None::<&gtk::Window>,
+            None::<&gio::Cancellable>,
+            move |file| {
+                result.replace(file.ok().and_then(|file| file.path()));
+                drop(hold);
+            },
+        );
+    });
+    let status = app.run_with_args::<&str>(&[]);
+    if status != glib::ExitCode::SUCCESS {
+        bail!("file dialog exited with {status:?}");
+    }
+    Ok(picked.take())
+}
+
+/// A file dialog that only shows Markdown files.
+fn markdown_dialog() -> gtk::FileDialog {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some("Markdown"));
+    filter.add_suffix("md");
+    filter.add_suffix("markdown");
+    let filters = gio::ListStore::new::<gtk::FileFilter>();
+    filters.append(&filter);
+    gtk::FileDialog::builder()
+        .title("Open Markdown file")
+        .filters(&filters)
+        .build()
+}
+
 /// Opens the preview window for `file` and blocks until it is closed.
 ///
 /// Shows the initial page first, then swaps in fresh content after every save.
 pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
-    if options.disable_dmabuf {
-        // SAFETY: no other threads exist yet; the watcher thread is spawned below and
-        // WebKit reads the variable when GTK starts.
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
-    }
     let base_dir = file
         .parent()
         .context("Markdown file has no parent directory")?;
@@ -292,18 +338,8 @@ impl Ctx {
 
     /// Asks for a Markdown file and opens it in a new window.
     fn open(&self, window: &gtk::ApplicationWindow) {
-        let filter = gtk::FileFilter::new();
-        filter.set_name(Some("Markdown"));
-        filter.add_suffix("md");
-        filter.add_suffix("markdown");
-        let filters = gio::ListStore::new::<gtk::FileFilter>();
-        filters.append(&filter);
-        let dialog = gtk::FileDialog::builder()
-            .title("Open Markdown file")
-            .filters(&filters)
-            .build();
         let ctx = self.clone();
-        dialog.open(Some(window), None::<&gio::Cancellable>, move |result| {
+        markdown_dialog().open(Some(window), None::<&gio::Cancellable>, move |result| {
             // Err also means the dialog was cancelled; nothing to report then.
             let Some(path) = result.ok().and_then(|file| file.path()) else {
                 return;

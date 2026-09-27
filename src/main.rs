@@ -18,11 +18,7 @@ use crate::render::RenderOptions;
 
 /// Lightweight Markdown previewer with PDF export.
 #[derive(Parser)]
-#[command(
-    version,
-    args_conflicts_with_subcommands = true,
-    arg_required_else_help = true
-)]
+#[command(version, args_conflicts_with_subcommands = true)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -146,13 +142,12 @@ fn main() -> Result<()> {
             }
         }
         None => {
-            let file = cli.file.context("no Markdown file given")?;
             let preview = Preview {
                 show_bars: !cli.no_toolbar,
                 config,
                 config_path,
             };
-            open_preview(&file, &cli.global, theme_dir.as_deref(), preview)?;
+            open_preview(cli.file, &cli.global, theme_dir.as_deref(), preview)?;
         }
     }
     Ok(())
@@ -169,13 +164,23 @@ struct Preview {
     config_path: Option<PathBuf>,
 }
 
+/// Opens the preview window; without a file it asks for one first (launchers pass none).
 #[cfg(feature = "gui")]
 fn open_preview(
-    file: &Path,
+    file: Option<PathBuf>,
     global: &GlobalOpts,
     theme_dir: Option<&Path>,
     preview: Preview,
 ) -> Result<()> {
+    gui::prepare(preview.config.disable_dmabuf);
+    let file = match file {
+        Some(file) => file,
+        None => match gui::pick_file()? {
+            Some(file) => file,
+            None => return Ok(()),
+        },
+    };
+    let file = file.as_path();
     let page = render_file(file, global, theme_dir)?;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
@@ -233,7 +238,6 @@ fn open_preview(
         },
         default_pdf: default_pdf_path(&file, preview.config.export_dir.as_deref())?,
         editor: preview.config.editor,
-        disable_dmabuf: preview.config.disable_dmabuf,
         config_path: preview.config_path,
         show_bars: preview.show_bars,
     };
@@ -263,7 +267,7 @@ fn with_theme(global: &GlobalOpts, theme: Option<&str>) -> GlobalOpts {
 
 #[cfg(not(feature = "gui"))]
 fn open_preview(
-    _file: &Path,
+    _file: Option<PathBuf>,
     _global: &GlobalOpts,
     _theme_dir: Option<&Path>,
     _preview: Preview,
