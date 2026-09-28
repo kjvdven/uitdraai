@@ -11,7 +11,8 @@ use webkit6::{
     NavigationPolicyDecision, PolicyDecision, PolicyDecisionType, Settings, WebView, gio, glib, gtk,
 };
 
-use crate::{config, watch};
+use crate::config::{self, ExportFormat};
+use crate::watch;
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
 const CUSTOM_CSS_LABEL: &str = "Custom CSS";
@@ -32,6 +33,8 @@ pub struct Hooks {
     pub render_content: Box<dyn Fn() -> Result<String> + Send + Sync>,
     /// Exports the file to PDF at the given path.
     pub export_pdf: ExportHook,
+    /// Writes the complete HTML page to the given path.
+    pub export_html: ExportHook,
     /// Opens another Markdown file in a new window.
     pub open: PathHook,
 }
@@ -48,6 +51,8 @@ pub struct Options {
     pub default_pdf: PathBuf,
     /// Command for "Open in editor"; `None` uses the desktop's default app.
     pub editor: Option<Vec<String>>,
+    /// What `Ctrl+E` and the main export button produce.
+    pub default_export: ExportFormat,
     /// The config file `Ctrl+,` opens.
     pub config_path: Option<PathBuf>,
     /// Show the toolbar and status bar (`--no-toolbar` turns them off).
@@ -173,10 +178,24 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             .hexpand(true)
             .halign(gtk::Align::End)
             .build();
+        // A split button: the main part exports the default format, the arrow offers all.
         let export_button = gtk::Button::builder()
-            .label("Export PDF")
-            .action_name("win.export-pdf")
+            .label(format!("Export {}", options.default_export.label()))
+            .action_name("win.export")
             .build();
+        let export_formats = gio::Menu::new();
+        export_formats.append(Some("Export _PDF"), Some("win.export-pdf"));
+        export_formats.append(Some("Export _HTML"), Some("win.export-html"));
+        let export_menu = gtk::MenuButton::builder()
+            .menu_model(&export_formats)
+            .tooltip_text("Choose export format")
+            .build();
+        let export = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .css_classes(["linked"])
+            .build();
+        export.append(&export_button);
+        export.append(&export_menu);
         let toolbar = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
             .spacing(8)
@@ -187,7 +206,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             .build();
         toolbar.append(&theme_picker);
         toolbar.append(&editor_button);
-        toolbar.append(&export_button);
+        toolbar.append(&export);
 
         toolbar.set_visible(options.show_bars);
         status.root.set_visible(options.show_bars);
@@ -208,10 +227,12 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             preview,
             status,
             toolbar,
+            export_menu,
             hooks: Arc::clone(&hooks),
             markdown_file: markdown_file.clone(),
             default_pdf: options.default_pdf.clone(),
             editor: options.editor.clone(),
+            default_export: options.default_export,
             config_path: options.config_path.clone(),
             theme: Rc::new(RefCell::new(options.theme.clone())),
         };
@@ -257,10 +278,12 @@ struct Ctx {
     preview: Preview,
     status: StatusBar,
     toolbar: gtk::Box,
+    export_menu: gtk::MenuButton,
     hooks: Arc<Hooks>,
     markdown_file: PathBuf,
     default_pdf: PathBuf,
     editor: Option<Vec<String>>,
+    default_export: ExportFormat,
     config_path: Option<PathBuf>,
     theme: Rc<RefCell<Option<String>>>,
 }
@@ -301,13 +324,15 @@ impl Ctx {
         });
     }
 
-    /// Asks where to save, then exports with the current theme.
-    fn export_pdf(&self, window: &gtk::ApplicationWindow) {
-        let mut dialog = gtk::FileDialog::builder().title("Export PDF");
-        if let Some(dir) = self.default_pdf.parent() {
+    /// Asks where to save, then exports to `format` with the current theme.
+    fn export(&self, window: &gtk::ApplicationWindow, format: ExportFormat) {
+        let label = format.label();
+        let default = self.default_pdf.with_extension(format.extension());
+        let mut dialog = gtk::FileDialog::builder().title(format!("Export {label}"));
+        if let Some(dir) = default.parent() {
             dialog = dialog.initial_folder(&gio::File::for_path(dir));
         }
-        if let Some(name) = self.default_pdf.file_name() {
+        if let Some(name) = default.file_name() {
             dialog = dialog.initial_name(name.to_string_lossy().as_ref());
         }
         let ctx = self.clone();
@@ -315,19 +340,28 @@ impl Ctx {
             .build()
             .save(Some(window), None::<&gio::Cancellable>, move |result| {
                 // Err also means the dialog was cancelled; nothing to report then.
-                let Some(pdf) = result.ok().and_then(|file| file.path()) else {
+                let Some(path) = result.ok().and_then(|file| file.path()) else {
                     return;
                 };
-                ctx.status.set("Exporting PDF…");
+                ctx.status.set(&format!("Exporting {label}…"));
                 let theme = ctx.theme.borrow().clone();
                 glib::spawn_future_local(async move {
-                    let (hooks, target) = (Arc::clone(&ctx.hooks), pdf.clone());
-                    let export = move || (hooks.export_pdf)(&target, theme.as_deref());
+                    let (hooks, target) = (Arc::clone(&ctx.hooks), path.clone());
+                    let export = move || {
+                        let hook = match format {
+                            ExportFormat::Pdf => &hooks.export_pdf,
+                            ExportFormat::Html => &hooks.export_html,
+                        };
+                        hook(&target, theme.as_deref())
+                    };
                     match gio::spawn_blocking(export).await {
                         Ok(Ok(())) => {
-                            ctx.status
-                                .set(&format!("PDF saved {}: {}", clock(), pdf.display()));
-                            ctx.status.show_pdf(pdf);
+                            ctx.status.set(&format!(
+                                "{label} saved {}: {}",
+                                clock(),
+                                path.display()
+                            ));
+                            ctx.status.show_export(path, format);
                         }
                         Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
                         Err(_) => ctx.status.set("Error: export panicked"),
@@ -418,7 +452,12 @@ const SHORTCUTS: &[(&str, &[&str], &str)] = &[
     ("win.open", &["<Control>o"], "Open another file"),
     ("win.open-editor", &["<Control><Shift>o"], "Open in editor"),
     ("win.open-config", &["<Control>comma"], "Open config file"),
-    ("win.export-pdf", &["<Control>e"], "Export PDF"),
+    ("win.export", &["<Control>e"], "Export (default format)"),
+    (
+        "win.export-menu",
+        &["<Control><Shift>e"],
+        "Choose export format",
+    ),
     ("win.reload", &["<Control>r"], "Reload page"),
     (
         "win.toggle-bars",
@@ -454,7 +493,16 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
     };
     window.add_action_entries([
         action("reload", |ctx, _| ctx.reload()),
-        action("export-pdf", Ctx::export_pdf),
+        action("export", |ctx, window| {
+            ctx.export(window, ctx.default_export)
+        }),
+        action("export-pdf", |ctx, window| {
+            ctx.export(window, ExportFormat::Pdf)
+        }),
+        action("export-html", |ctx, window| {
+            ctx.export(window, ExportFormat::Html)
+        }),
+        action("export-menu", |ctx, _| ctx.export_menu.popup()),
         action("open", Ctx::open),
         action("open-editor", Ctx::open_editor),
         action("open-config", Ctx::open_config),
@@ -517,13 +565,14 @@ fn show_shortcuts(parent: &gtk::ApplicationWindow) {
     help.present();
 }
 
-/// Bottom bar with the last event, plus buttons for the last exported PDF.
+/// Bottom bar with the last event, plus buttons for the last exported file.
 #[derive(Clone)]
 struct StatusBar {
     root: gtk::Box,
     label: gtk::Label,
-    pdf_buttons: gtk::Box,
-    last_pdf: Rc<RefCell<Option<PathBuf>>>,
+    export_buttons: gtk::Box,
+    open_button: gtk::Button,
+    last_export: Rc<RefCell<Option<PathBuf>>>,
 }
 
 impl StatusBar {
@@ -535,7 +584,7 @@ impl StatusBar {
             .ellipsize(gtk::pango::EllipsizeMode::Middle)
             .css_classes(["dim-label"])
             .build();
-        let open = gtk::Button::builder()
+        let open_button = gtk::Button::builder()
             .label("Open PDF")
             .css_classes(["flat"])
             .build();
@@ -543,12 +592,12 @@ impl StatusBar {
             .label("Show in folder")
             .css_classes(["flat"])
             .build();
-        let pdf_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-        pdf_buttons.append(&open);
-        pdf_buttons.append(&reveal);
+        let export_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        export_buttons.append(&open_button);
+        export_buttons.append(&reveal);
         // Invisible rather than hidden until the first export, so the bar keeps its height.
-        pdf_buttons.set_opacity(0.0);
-        pdf_buttons.set_sensitive(false);
+        export_buttons.set_opacity(0.0);
+        export_buttons.set_sensitive(false);
 
         let root = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
@@ -559,18 +608,19 @@ impl StatusBar {
             .margin_bottom(6)
             .build();
         root.append(&label);
-        root.append(&pdf_buttons);
+        root.append(&export_buttons);
 
         let bar = Self {
             root,
             label,
-            pdf_buttons,
-            last_pdf: Rc::new(RefCell::new(None)),
+            export_buttons,
+            open_button: open_button.clone(),
+            last_export: Rc::new(RefCell::new(None)),
         };
         let this = bar.clone();
-        open.connect_clicked(move |_| this.launch_pdf(false));
+        open_button.connect_clicked(move |_| this.launch_export(false));
         let this = bar.clone();
-        reveal.connect_clicked(move |_| this.launch_pdf(true));
+        reveal.connect_clicked(move |_| this.launch_export(true));
         bar
     }
 
@@ -579,22 +629,24 @@ impl StatusBar {
         self.label.set_tooltip_text(Some(text));
     }
 
-    fn show_pdf(&self, pdf: PathBuf) {
-        self.last_pdf.replace(Some(pdf));
-        self.pdf_buttons.set_opacity(1.0);
-        self.pdf_buttons.set_sensitive(true);
+    fn show_export(&self, path: PathBuf, format: ExportFormat) {
+        self.last_export.replace(Some(path));
+        self.open_button
+            .set_label(&format!("Open {}", format.label()));
+        self.export_buttons.set_opacity(1.0);
+        self.export_buttons.set_sensitive(true);
     }
 
-    /// Opens the last PDF in its default app, or its folder in the file manager.
-    fn launch_pdf(&self, in_folder: bool) {
-        let Some(pdf) = self.last_pdf.borrow().clone() else {
+    /// Opens the last export in its default app, or its folder in the file manager.
+    fn launch_export(&self, in_folder: bool) {
+        let Some(path) = self.last_export.borrow().clone() else {
             return;
         };
-        let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&pdf)));
+        let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&path)));
         let this = self.clone();
         let done = move |result: Result<(), glib::Error>| {
             if let Err(err) = result {
-                this.set(&format!("Error: cannot open {}: {err}", pdf.display()));
+                this.set(&format!("Error: cannot open {}: {err}", path.display()));
             }
         };
         let window = self.root.root().and_downcast::<gtk::Window>();

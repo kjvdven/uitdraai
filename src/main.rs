@@ -225,6 +225,15 @@ fn open_preview(
             )
         }
     };
+    let export_html = {
+        let (file, global, theme_dir) =
+            (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
+        move |html_file: &Path, theme: Option<&str>| {
+            let html = render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())?;
+            fs::write(html_file, html)
+                .with_context(|| format!("cannot write {}", html_file.display()))
+        }
+    };
     let open = {
         let global = global.clone();
         move |file: &Path| spawn_preview(file, &global)
@@ -238,6 +247,7 @@ fn open_preview(
         },
         default_pdf: default_pdf_path(&file, preview.config.export_dir.as_deref())?,
         editor: preview.config.editor,
+        default_export: preview.config.default_export,
         config_path: preview.config_path,
         show_bars: preview.show_bars,
     };
@@ -249,6 +259,7 @@ fn open_preview(
             theme_css: Box::new(theme_css),
             render_content: Box::new(render_content),
             export_pdf: Box::new(export_pdf),
+            export_html: Box::new(export_html),
             open: Box::new(open),
         },
     )

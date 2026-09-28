@@ -83,9 +83,9 @@ Theme lookup order: `--css`, then `~/.config/uitdraai/themes/<name>.css`, then t
 
 ## GUI specification
 - App id `io.github.kjvdven.uitdraai`, so window rules can match it.
-- Minimal toolbar at the top with a theme dropdown, "Open in editor" (default app for Markdown, `Ctrl+Shift+O`) and a PDF export button. Toolbar and status bar can be hidden together with `--no-toolbar` or `Ctrl+T`, because on a tiling WM you often only want the content.
-- Shortcuts: `Ctrl+O` open (in a new window), `Ctrl+E` PDF (save dialog, name and folder prefilled), `Ctrl+R` full reload, `Ctrl+T` toolbar and status bar, `Ctrl+,` open config.toml (created from a template first), `Ctrl+?` overview of all shortcuts, `Ctrl+Q` close, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
-- Status bar at the bottom with the last event (opened, updated with time and duration, export, errors), no popups. After an export, "Open PDF" and "Show in folder" buttons.
+- Minimal toolbar at the top with a theme dropdown, "Open in editor" (default app for Markdown, `Ctrl+Shift+O`) and one export split button: the main part exports the default format (PDF, or `default_export = "html"` in `config.toml`), the arrow offers PDF and HTML. Toolbar and status bar can be hidden together with `--no-toolbar` or `Ctrl+T`, because on a tiling WM you often only want the content.
+- Shortcuts: `Ctrl+O` open (in a new window), `Ctrl+E` export in the default format (save dialog, name and folder prefilled), `Ctrl+Shift+E` choose the export format (keyboard-navigable menu), `Ctrl+R` full reload, `Ctrl+T` toolbar and status bar, `Ctrl+,` open config.toml (created from a template first), `Ctrl+?` overview of all shortcuts, `Ctrl+Q` close, `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom via `WebView::set_zoom_level`.
+- Status bar at the bottom with the last event (opened, updated with time and duration, export, errors), no popups. After an export, "Open PDF"/"Open HTML" and "Show in folder" buttons for the last exported file.
 - External links open in the default browser; all other navigation is blocked (via the `decide-policy` signal).
 
 Example window rules:
@@ -138,7 +138,7 @@ A live preview window on Wayland.
 - [ ] Render Mermaid and KaTeX to SVG in Rust up front, without JavaScript in the page. Mermaid research and options: [#1](https://github.com/kjvdven/uitdraai/issues/1); parked to keep the app simple. KaTeX still to research
 - [ ] Reconsider Blitz as a lighter viewer (pure Rust, no WebKit, no web process). Only worthwhile once the CSS the themes use is well supported there; compare Blitz's roadmap with the themes first
 - [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content
-- [x] `config.toml` with `theme`, `export_dir`, `editor` (a list, e.g. `["ghostty", "-e", "hx"]`, so terminal editors work too) and `disable_dmabuf` (NVIDIA). The latter sets `WEBKIT_DISABLE_DMABUF_RENDERER` in `gui::run` before GTK starts and before the watcher thread, with a `// SAFETY:` comment. `reference-doc` follows with DOCX
+- [x] `config.toml` with `theme`, `export_dir`, `editor` (a list, e.g. `["ghostty", "-e", "hx"]`, so terminal editors work too) `default_export` (`"pdf"` or `"html"`) and `disable_dmabuf` (NVIDIA). The latter sets `WEBKIT_DISABLE_DMABUF_RENDERER` in `gui::prepare` before GTK starts and before any thread, with a `// SAFETY:` comment. `reference-doc` follows with DOCX
 
 ## Dependencies per distro
 - **Arch:** `gtk4 webkitgtk-6.0 pandoc python-weasyprint`

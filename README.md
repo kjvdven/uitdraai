@@ -9,7 +9,7 @@ Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live p
 ## Features
 
 - Live reload on save that keeps your scroll position
-- PDF export with print CSS: A4, page numbers, sensible page breaks
+- PDF export with print CSS (A4, page numbers, sensible page breaks) and standalone HTML export
 - Themes: a built-in `default`, your own in `~/.config/uitdraai/themes/`
 - Code highlighting, tables, task lists and footnotes (GitHub Flavored Markdown)
 - Safe by default: no JavaScript in the page, raw HTML and remote images off unless you pass `--allow-html` or `--allow-remote`
@@ -55,7 +55,8 @@ In the window, `Ctrl+?` lists all shortcuts. The app id is `io.github.kjvdven.ui
 
 ```toml
 theme = "mine"                   # default theme
-export_dir = "/home/you/PDF"     # where PDFs go
+export_dir = "/home/you/PDF"     # where exports go
+default_export = "html"          # what Ctrl+E and the export button produce (default: "pdf")
 editor = ["ghostty", "-e", "hx"] # "Open in editor"; default is your desktop's app for Markdown
 disable_dmabuf = true            # if the window stays empty (common on NVIDIA)
 ```
