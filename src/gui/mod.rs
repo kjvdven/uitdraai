@@ -12,12 +12,14 @@ use webkit6::{
 };
 
 use crate::config::{self, ExportFormat};
+use crate::render::{Heading, Rendered};
 use crate::watch;
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
 const CUSTOM_CSS_LABEL: &str = "Custom CSS";
 
-type PageHook = Box<dyn Fn(Option<&str>) -> Result<String> + Send + Sync>;
+type PageHook = Box<dyn Fn(Option<&str>) -> Result<Rendered> + Send + Sync>;
+type CssHook = Box<dyn Fn(Option<&str>) -> Result<String> + Send + Sync>;
 type ExportHook = Box<dyn Fn(&Path, Option<&str>) -> Result<()> + Send + Sync>;
 type PathHook = Box<dyn Fn(&Path) -> Result<()> + Send + Sync>;
 
@@ -28,9 +30,9 @@ pub struct Hooks {
     /// Renders the complete page, for `Ctrl+R`.
     pub render_page: PageHook,
     /// Returns the stylesheet for a theme, for switching themes in place.
-    pub theme_css: PageHook,
+    pub theme_css: CssHook,
     /// Renders only the `#content` HTML, for live reload after a save.
-    pub render_content: Box<dyn Fn() -> Result<String> + Send + Sync>,
+    pub render_content: Box<dyn Fn() -> Result<Rendered> + Send + Sync>,
     /// Exports the file to PDF at the given path.
     pub export_pdf: ExportHook,
     /// Writes the complete HTML page to the given path.
@@ -42,7 +44,7 @@ pub struct Hooks {
 /// What the window starts with.
 pub struct Options {
     /// The page rendered with the command-line stylesheet.
-    pub page: String,
+    pub page: Rendered,
     /// Theme names for the dropdown.
     pub themes: Vec<String>,
     /// The theme to preselect; `None` when `--css` is in use.
@@ -152,7 +154,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         .build();
     app.connect_activate(move |app| {
         let preview = Preview::new(&base_uri);
-        preview.load(&options.page);
+        preview.load(&options.page.html);
         let status = StatusBar::new();
         status.set(&format!("Opened {}", clock()));
 
@@ -169,6 +171,8 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             .iter()
             .map(|choice| choice.as_deref().unwrap_or(CUSTOM_CSS_LABEL))
             .collect();
+        let outline = Outline::new(&preview);
+        outline.set(&options.page.headings);
         let theme_picker = gtk::DropDown::from_strings(&labels);
         theme_picker.set_selected(u32::try_from(selected).unwrap_or(0));
         theme_picker.set_tooltip_text(Some("Theme"));
@@ -204,6 +208,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             .margin_top(6)
             .margin_bottom(6)
             .build();
+        toolbar.append(&outline.button);
         toolbar.append(&theme_picker);
         toolbar.append(&editor_button);
         toolbar.append(&export);
@@ -226,6 +231,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         let ctx = Ctx {
             preview,
             status,
+            outline,
             toolbar,
             export_menu,
             hooks: Arc::clone(&hooks),
@@ -254,7 +260,8 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             while let Ok((content, took)) = rx.recv().await {
                 match content {
                     Ok(content) => {
-                        ctx.preview.replace_content(&content);
+                        ctx.preview.replace_content(&content.html);
+                        ctx.outline.set(&content.headings);
                         ctx.status
                             .set(&format!("Updated {} · {}", clock(), millis(took)));
                     }
@@ -277,6 +284,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
 struct Ctx {
     preview: Preview,
     status: StatusBar,
+    outline: Outline,
     toolbar: gtk::Box,
     export_menu: gtk::MenuButton,
     hooks: Arc<Hooks>,
@@ -297,7 +305,8 @@ impl Ctx {
             let hooks = Arc::clone(&ctx.hooks);
             match gio::spawn_blocking(move || (hooks.render_page)(theme.as_deref())).await {
                 Ok(Ok(page)) => {
-                    ctx.preview.load(&page);
+                    ctx.preview.load(&page.html);
+                    ctx.outline.set(&page.headings);
                     ctx.status.set(&format!("Reloaded {}", clock()));
                 }
                 Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
@@ -460,8 +469,13 @@ const SHORTCUTS: &[(&str, &[&str], &str)] = &[
     ),
     ("win.reload", &["<Control>r"], "Reload page"),
     (
+        "win.headings",
+        &["<Control><Shift>t", "F9"],
+        "Jump to a heading",
+    ),
+    (
         "win.toggle-bars",
-        &["<Control>t"],
+        &["<Control><Shift>h", "F11"],
         "Show or hide toolbar and status bar",
     ),
     // `+` needs Shift on most layouts, so Ctrl+= counts as zoom in too.
@@ -503,6 +517,7 @@ fn add_shortcuts(app: &gtk::Application, window: &gtk::ApplicationWindow, ctx: &
             ctx.export(window, ExportFormat::Html)
         }),
         action("export-menu", |ctx, _| ctx.export_menu.popup()),
+        action("headings", |ctx, _| ctx.outline.button.popup()),
         action("open", Ctx::open),
         action("open-editor", Ctx::open_editor),
         action("open-config", Ctx::open_config),
@@ -563,6 +578,63 @@ fn show_shortcuts(parent: &gtk::ApplicationWindow) {
         .build();
     help.add_controller(escape);
     help.present();
+}
+
+/// Toolbar dropdown that lists the document's headings; activating one scrolls to it.
+#[derive(Clone)]
+struct Outline {
+    button: gtk::MenuButton,
+    list: gtk::ListBox,
+}
+
+impl Outline {
+    fn new(preview: &Preview) -> Self {
+        let list = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .css_classes(["navigation-sidebar"])
+            .build();
+        let scroller = gtk::ScrolledWindow::builder()
+            .child(&list)
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .propagate_natural_height(true)
+            .propagate_natural_width(true)
+            .max_content_height(500)
+            .build();
+        let popover = gtk::Popover::builder().child(&scroller).build();
+        let button = gtk::MenuButton::builder()
+            .icon_name("view-list-symbolic")
+            .tooltip_text("Jump to a heading")
+            .popover(&popover)
+            .sensitive(false)
+            .build();
+        let preview = preview.clone();
+        list.connect_row_activated(move |_, row| {
+            preview.scroll_to(&row.widget_name());
+            popover.popdown();
+        });
+        Self { button, list }
+    }
+
+    /// Replaces the rows; the button is disabled when there is nothing to jump to.
+    fn set(&self, headings: &[Heading]) {
+        while let Some(row) = self.list.first_child() {
+            self.list.remove(&row);
+        }
+        for heading in headings {
+            let label = gtk::Label::builder()
+                .label(&heading.text)
+                .xalign(0.0)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .max_width_chars(48)
+                .margin_start(12 * i32::from(heading.level.saturating_sub(1)))
+                .build();
+            let row = gtk::ListBoxRow::builder().child(&label).build();
+            // The heading id rides along on the row for the click handler.
+            row.set_widget_name(&heading.id);
+            self.list.append(&row);
+        }
+        self.button.set_sensitive(!headings.is_empty());
+    }
 }
 
 /// Bottom bar with the last event, plus buttons for the last exported file.
@@ -745,6 +817,16 @@ impl Preview {
                const at = scrollY / room();
                document.querySelector('head style').textContent = {literal};
                scrollTo(0, at * room()); }}"
+        ));
+    }
+
+    /// Scrolls the page to the element with `id`, if there is one.
+    fn scroll_to(&self, id: &str) {
+        let Ok(literal) = serde_json::to_string(id) else {
+            return;
+        };
+        self.run_script(&format!(
+            "document.getElementById({literal})?.scrollIntoView({{ behavior: 'smooth' }});"
         ));
     }
 

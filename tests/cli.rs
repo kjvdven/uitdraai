@@ -27,7 +27,7 @@ fn render_writes_page_to_stdout_without_scripts() {
     let out = uitdraai(&dir, &["render", md.to_str().unwrap()]);
     let html = String::from_utf8(out.stdout).unwrap();
     assert!(out.status.success());
-    assert!(html.contains("<h1>Hi</h1>"));
+    assert!(html.contains("<h1 id=\"hi\">"));
     assert!(!html.contains("<script>"));
 }
 
@@ -43,7 +43,11 @@ fn render_writes_to_output_file() {
         &["render", md.to_str().unwrap(), "-o", html.to_str().unwrap()],
     );
     assert!(out.status.success());
-    assert!(fs::read_to_string(&html).unwrap().contains("<h1>Hi</h1>"));
+    assert!(
+        fs::read_to_string(&html)
+            .unwrap()
+            .contains("<h1 id=\"hi\">")
+    );
 }
 
 #[test]
