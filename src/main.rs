@@ -26,7 +26,7 @@ struct Cli {
     /// Markdown file to open in the preview window
     file: Option<PathBuf>,
 
-    /// Start the preview window without toolbar and status bar (Ctrl+T shows them)
+    /// Start the preview window without toolbar and status bar (Ctrl+Shift+H shows them)
     #[arg(long)]
     no_toolbar: bool,
 
