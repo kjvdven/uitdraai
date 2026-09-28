@@ -16,8 +16,11 @@ const TEMPLATE: &str = r#"# uitdraai configuration. Every key is optional; comma
 # Theme used when --theme and --css are not given.
 # theme = "default"
 
-# Where PDFs go by default, instead of next to the Markdown file.
+# Where exports go by default, instead of next to the Markdown file.
 # export_dir = "/home/you/Documents"
+
+# What Ctrl+E and the export button produce: "pdf" or "html".
+# default_export = "pdf"
 
 # Command for "Open in editor"; the file is appended. Default: the desktop's app for Markdown.
 # editor = ["ghostty", "-e", "hx"]
@@ -43,6 +46,47 @@ pub struct Config {
         allow(dead_code, reason = "only the preview window uses it")
     )]
     pub disable_dmabuf: bool,
+    #[serde(default)]
+    #[cfg_attr(
+        not(feature = "gui"),
+        allow(dead_code, reason = "only the preview window uses it")
+    )]
+    pub default_export: ExportFormat,
+}
+
+/// A format the preview window can export to.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    not(feature = "gui"),
+    allow(dead_code, reason = "only the preview window uses it")
+)]
+pub enum ExportFormat {
+    #[default]
+    Pdf,
+    Html,
+}
+
+#[cfg_attr(
+    not(feature = "gui"),
+    allow(dead_code, reason = "only the preview window uses it")
+)]
+impl ExportFormat {
+    /// Name for buttons and messages.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pdf => "PDF",
+            Self::Html => "HTML",
+        }
+    }
+
+    /// File extension, without the dot.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Pdf => "pdf",
+            Self::Html => "html",
+        }
+    }
 }
 
 /// Location of the config file, `~/.config/uitdraai/config.toml` on Linux.
@@ -96,6 +140,7 @@ mod tests {
         let config = load(Some(&temp_dir("missing").join("config.toml"))).unwrap();
         assert!(config.theme.is_none());
         assert!(!config.disable_dmabuf);
+        assert_eq!(config.default_export, ExportFormat::Pdf);
     }
 
     #[test]
@@ -103,7 +148,7 @@ mod tests {
         let path = temp_dir("all").join("config.toml");
         fs::write(
             &path,
-            "theme = \"sepia\"\nexport_dir = \"/tmp/pdf\"\neditor = [\"hx\"]\ndisable_dmabuf = true\n",
+            "theme = \"sepia\"\nexport_dir = \"/tmp/pdf\"\neditor = [\"hx\"]\ndisable_dmabuf = true\ndefault_export = \"html\"\n",
         )
         .unwrap();
         let config = load(Some(&path)).unwrap();
@@ -111,6 +156,15 @@ mod tests {
         assert_eq!(config.export_dir, Some(PathBuf::from("/tmp/pdf")));
         assert_eq!(config.editor, Some(vec!["hx".to_owned()]));
         assert!(config.disable_dmabuf);
+        assert_eq!(config.default_export, ExportFormat::Html);
+    }
+
+    #[test]
+    fn unknown_export_format_is_an_error() {
+        let path = temp_dir("format").join("config.toml");
+        fs::write(&path, "default_export = \"docx\"\n").unwrap();
+        let err = format!("{:#}", load(Some(&path)).unwrap_err());
+        assert!(err.contains("docx"), "{err}");
     }
 
     #[test]
