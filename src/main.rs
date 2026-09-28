@@ -14,7 +14,7 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 
-use crate::render::RenderOptions;
+use crate::render::{RenderOptions, Rendered};
 
 /// Lightweight Markdown previewer with PDF export.
 #[derive(Parser)]
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
     let theme_dir = theme::user_theme_dir();
     match cli.command {
         Some(Command::Render { file, output }) => {
-            let html = render_file(&file, &cli.global, theme_dir.as_deref())?;
+            let html = render_file(&file, &cli.global, theme_dir.as_deref())?.html;
             match output {
                 Some(path) => fs::write(&path, html)
                     .with_context(|| format!("cannot write {}", path.display()))?,
@@ -229,7 +229,7 @@ fn open_preview(
         let (file, global, theme_dir) =
             (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
         move |html_file: &Path, theme: Option<&str>| {
-            let html = render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())?;
+            let html = render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())?.html;
             fs::write(html_file, html)
                 .with_context(|| format!("cannot write {}", html_file.display()))
         }
@@ -306,7 +306,7 @@ fn export_file(
     global: &GlobalOpts,
     theme_dir: Option<&Path>,
 ) -> Result<()> {
-    let html = render_file(file, global, theme_dir)?;
+    let html = render_file(file, global, theme_dir)?.html;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
     let base_dir = file
@@ -317,7 +317,7 @@ fn export_file(
     })
 }
 
-fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<String> {
+fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<Rendered> {
     let markdown = timed(global.timing, "read", || {
         fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))
     })?;

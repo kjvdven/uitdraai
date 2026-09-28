@@ -12,12 +12,14 @@ use webkit6::{
 };
 
 use crate::config::{self, ExportFormat};
+use crate::render::Rendered;
 use crate::watch;
 
 const APP_ID: &str = "io.github.kjvdven.uitdraai";
 const CUSTOM_CSS_LABEL: &str = "Custom CSS";
 
-type PageHook = Box<dyn Fn(Option<&str>) -> Result<String> + Send + Sync>;
+type PageHook = Box<dyn Fn(Option<&str>) -> Result<Rendered> + Send + Sync>;
+type CssHook = Box<dyn Fn(Option<&str>) -> Result<String> + Send + Sync>;
 type ExportHook = Box<dyn Fn(&Path, Option<&str>) -> Result<()> + Send + Sync>;
 type PathHook = Box<dyn Fn(&Path) -> Result<()> + Send + Sync>;
 
@@ -28,9 +30,9 @@ pub struct Hooks {
     /// Renders the complete page, for `Ctrl+R`.
     pub render_page: PageHook,
     /// Returns the stylesheet for a theme, for switching themes in place.
-    pub theme_css: PageHook,
+    pub theme_css: CssHook,
     /// Renders only the `#content` HTML, for live reload after a save.
-    pub render_content: Box<dyn Fn() -> Result<String> + Send + Sync>,
+    pub render_content: Box<dyn Fn() -> Result<Rendered> + Send + Sync>,
     /// Exports the file to PDF at the given path.
     pub export_pdf: ExportHook,
     /// Writes the complete HTML page to the given path.
@@ -42,7 +44,7 @@ pub struct Hooks {
 /// What the window starts with.
 pub struct Options {
     /// The page rendered with the command-line stylesheet.
-    pub page: String,
+    pub page: Rendered,
     /// Theme names for the dropdown.
     pub themes: Vec<String>,
     /// The theme to preselect; `None` when `--css` is in use.
@@ -152,7 +154,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         .build();
     app.connect_activate(move |app| {
         let preview = Preview::new(&base_uri);
-        preview.load(&options.page);
+        preview.load(&options.page.html);
         let status = StatusBar::new();
         status.set(&format!("Opened {}", clock()));
 
@@ -254,7 +256,7 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             while let Ok((content, took)) = rx.recv().await {
                 match content {
                     Ok(content) => {
-                        ctx.preview.replace_content(&content);
+                        ctx.preview.replace_content(&content.html);
                         ctx.status
                             .set(&format!("Updated {} · {}", clock(), millis(took)));
                     }
@@ -297,7 +299,7 @@ impl Ctx {
             let hooks = Arc::clone(&ctx.hooks);
             match gio::spawn_blocking(move || (hooks.render_page)(theme.as_deref())).await {
                 Ok(Ok(page)) => {
-                    ctx.preview.load(&page);
+                    ctx.preview.load(&page.html);
                     ctx.status.set(&format!("Reloaded {}", clock()));
                 }
                 Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
