@@ -826,7 +826,7 @@ impl Preview {
             return;
         };
         self.run_script(&format!(
-            "document.getElementById({literal})?.scrollIntoView();"
+            "document.getElementById({literal})?.scrollIntoView({{ behavior: 'smooth' }});"
         ));
     }
 
