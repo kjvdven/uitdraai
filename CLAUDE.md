@@ -63,3 +63,8 @@ strip = true
 - Public functions get a short doc comment; no comments that just repeat what the code already says.
 - Unit tests next to the code (`mod tests`) for logic; integration tests in `tests/` for the CLI.
 - Tests that need external tools (pandoc, weasyprint) are skipped when those tools are missing, instead of failing.
+
+## Releases
+- The version lives in three places: `Cargo.toml`, `Cargo.lock` (via `cargo build`) and `flake.nix`. Bump all three in one `chore: bump version to X.Y.Z` PR.
+- After the merge: `gh release create vX.Y.Z --target main` with one bullet per merged feature since the previous tag. The tag is created by the release.
+- Semver, pre-1.0: a new feature bumps minor, a fix bumps patch.
