@@ -4,6 +4,8 @@
 
 Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live preview in a small GTK4/WebKit window, PDF export through WeasyPrint. The CLI works without the GUI.
 
+![The preview window showing a Markdown document with a task list, highlighted code and a table](data/screenshot.png)
+
 > **Vibe coded.** Built together with an AI coding assistant (Claude Code), with a human reviewing and testing every step. Read the code before trusting it with anything important.
 
 ## Features
