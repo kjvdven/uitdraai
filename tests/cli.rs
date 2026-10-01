@@ -32,6 +32,26 @@ fn render_writes_page_to_stdout_without_scripts() {
 }
 
 #[test]
+fn render_turns_math_into_svg() {
+    let dir = temp_dir("math");
+    let out = uitdraai(&dir, &["render", "tests/fixtures/math.md"]);
+    let html = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    assert_eq!(
+        html.matches("<span class=\"math math-inline\"><svg ")
+            .count(),
+        2
+    );
+    assert_eq!(
+        html.matches("<span class=\"math math-display\"><svg ")
+            .count(),
+        1
+    );
+    assert!(html.contains("<span data-math-style=\"inline\">\\frac{1}</span>"));
+    assert!(html.contains("costs $5 and $10"));
+}
+
+#[test]
 fn render_writes_to_output_file() {
     let dir = temp_dir("output");
     let md = dir.join("notes.md");
