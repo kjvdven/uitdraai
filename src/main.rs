@@ -2,6 +2,7 @@ mod config;
 mod export;
 #[cfg(feature = "gui")]
 mod gui;
+mod math;
 mod render;
 mod theme;
 mod watch;

@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use comrak::nodes::NodeValue;
+use comrak::nodes::{NodeMath, NodeValue};
 use comrak::options::{Plugins, RenderPlugins};
 use comrak::plugins::syntect::{SyntectAdapter, SyntectAdapterBuilder};
 use comrak::{Anchorizer, Arena, Options, format_html_with_plugins, parse_document};
@@ -42,6 +42,7 @@ fn comrak_options(allow_html: bool) -> Options<'static> {
     options.extension.strikethrough = true;
     options.extension.footnotes = true;
     options.extension.autolink = true;
+    options.extension.math_dollars = true;
     // Empty prefix: `<h2 id="setup">`, the ids the outline jumps to.
     options.extension.header_id_prefix = Some(String::new());
     options.render.tasklist_classes = true;
@@ -65,6 +66,21 @@ pub fn render_fragment(markdown: &str, allow_html: bool) -> Rendered {
     };
     let arena = Arena::new();
     let root = parse_document(&arena, markdown, options);
+    for node in root.descendants() {
+        let svg = match &node.data.borrow().value {
+            NodeValue::Math(NodeMath {
+                literal,
+                display_math,
+                ..
+            }) => crate::math::render(literal, *display_math),
+            _ => None,
+        };
+        // Raw is written unescaped even in safe mode; a formula that doesn't
+        // parse stays a Math node, so comrak shows its source.
+        if let Some(svg) = svg {
+            node.data.borrow_mut().value = NodeValue::Raw(svg);
+        }
+    }
     // Same slugs as in the HTML: comrak also starts a fresh Anchorizer per document.
     let mut anchorizer = Anchorizer::new();
     let headings = root
@@ -175,6 +191,28 @@ mod tests {
         };
         let page = render_page("", "", opts).html;
         assert!(page.contains("img-src file: data: https:;"));
+    }
+
+    #[test]
+    fn math_becomes_inline_svg() {
+        let html = render_fragment("Energy: $E = mc^2$ and\n\n$$\n\\frac{1}{2}\n$$\n", false).html;
+        assert!(html.contains("<span class=\"math math-inline\"><svg "));
+        assert!(html.contains("<span class=\"math math-display\"><svg "));
+        assert!(!html.contains("data-math-style"));
+    }
+
+    #[test]
+    fn broken_math_keeps_its_source() {
+        let html = render_fragment("$\\frac{1}$", false).html;
+        assert!(html.contains("<span data-math-style=\"inline\">\\frac{1}</span>"));
+        assert!(!html.contains("<svg"));
+    }
+
+    #[test]
+    fn lone_dollars_stay_text() {
+        let html = render_fragment("costs $5 and $10", false).html;
+        assert!(html.contains("costs $5 and $10"));
+        assert!(!html.contains("<svg"));
     }
 
     #[test]
