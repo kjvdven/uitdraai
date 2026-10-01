@@ -137,7 +137,7 @@ A live preview window on Wayland.
 ### Phase 3: extras
 - [ ] Render Mermaid and KaTeX to SVG in Rust up front, without JavaScript in the page. Mermaid research and options: [#1](https://github.com/kjvdven/uitdraai/issues/1); parked to keep the app simple. Math research and options: [#16](https://github.com/kjvdven/uitdraai/issues/16)
 - [ ] Reconsider Blitz as a lighter viewer (pure Rust, no WebKit, no web process). Only worthwhile once the CSS the themes use is well supported there; compare Blitz's roadmap with the themes first
-- [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content
+- [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content. Math: add `+tex_math_dollars` to the `gfm` reader, pandoc then writes editable Word equations (OMML) and MathML for ODT. Mermaid: pandoc has no support; optional `mmdc` (mermaid-cli) as a subprocess that renders the blocks to PNG before pandoc runs, same pattern as weasyprint. Without it the block stays a code block
 - [x] Headings dropdown in the toolbar (`Ctrl+Shift+T`, `F9`); headings get GFM ids
 - [x] `config.toml` with `theme`, `export_dir`, `editor` (a list, e.g. `["ghostty", "-e", "hx"]`, so terminal editors work too) `default_export` (`"pdf"` or `"html"`) and `disable_dmabuf` (NVIDIA). The latter sets `WEBKIT_DISABLE_DMABUF_RENDERER` in `gui::prepare` before GTK starts and before any thread, with a `// SAFETY:` comment. `reference-doc` follows with DOCX
 
