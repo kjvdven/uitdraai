@@ -19,7 +19,7 @@
     break-after: avoid;
   }
 
-  pre, blockquote, tr, img {
+  pre, blockquote, tr, img, .math-display {
     break-inside: avoid;
   }
 }
