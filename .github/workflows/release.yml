@@ -1,0 +1,32 @@
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - run: rustup toolchain install stable --profile minimal && cargo build --release --locked
+
+      - name: Package
+        run: |
+          name=uitdraai-${{ github.event.release.tag_name }}-x86_64-linux
+          mkdir -p "$name/share/applications"
+          install -Dm755 target/release/uitdraai -t "$name/bin"
+          install -Dm644 data/io.github.kjvdven.uitdraai.desktop -t "$name/share/applications"
+          cp -r data/icons "$name/share/icons"
+          install -Dm644 LICENSE-MIT LICENSE-APACHE README.md -t "$name/share/doc/uitdraai"
+          tar czf "$name.tar.gz" "$name"
+
+      - run: gh release upload "${{ github.event.release.tag_name }}" uitdraai-*.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}

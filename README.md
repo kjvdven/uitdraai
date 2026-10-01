@@ -31,6 +31,12 @@ cargo install --git https://github.com/kjvdven/uitdraai
 cargo install --git https://github.com/kjvdven/uitdraai --no-default-features
 ```
 
+Or skip Rust: each [release](https://github.com/kjvdven/uitdraai/releases) has a prebuilt x86_64 Linux binary (glibc 2.39+, plus the GTK and WebKitGTK packages above). It unpacks into `~/.local`, desktop entry and icons included:
+
+```sh
+tar xzf uitdraai-*-x86_64-linux.tar.gz --strip-components=1 -C ~/.local
+```
+
 For your launcher and "Open with" on Markdown files, install the desktop entry and icons from a checkout. If `~/.cargo/bin` isn't on your session's `PATH`, put the full path in its `Exec=` line.
 
 ```sh
