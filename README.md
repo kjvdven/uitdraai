@@ -14,6 +14,7 @@ Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live p
 - PDF export with print CSS (A4, page numbers, sensible page breaks) and standalone HTML export
 - Themes: a built-in `default`, your own in `~/.config/uitdraai/themes/`
 - Code highlighting, tables, task lists and footnotes (GitHub Flavored Markdown)
+- Math: `$E = mc^2$` inline and `$$...$$` on its own line, rendered to SVG with KaTeX fonts, no JavaScript
 - Safe by default: no JavaScript in the page, raw HTML and remote images off unless you pass `--allow-html` or `--allow-remote`
 
 ## Install

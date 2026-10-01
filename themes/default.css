@@ -85,6 +85,22 @@ pre {
   display: inline;
 }
 
+/* A span, not a div: comrak puts display math inside the <p>. */
+.math-display {
+  display: block;
+  margin: 1em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* A formula that doesn't parse keeps its source in this span. */
+[data-math-style] {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  color: #82071e;
+}
+
 @media print {
   /* 10pt on A4 wraps lines about like the 48rem preview column at 16px. */
   body {
