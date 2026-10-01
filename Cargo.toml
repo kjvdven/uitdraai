@@ -13,6 +13,10 @@ directories = "6.0.0"
 # webkit6 0.6.1 needs gtk::Accessible but does not enable gtk4's v4_10 feature itself.
 gtk4 = { version = "0.11.5", features = ["v4_10"], optional = true }
 notify-debouncer-mini = "0.7.0"
+ratex-layout = "0.1.14"
+ratex-parser = "0.1.14"
+ratex-svg = { version = "0.1.14", features = ["embed-fonts"] }
+ratex-types = "0.1.14"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", optional = true }
 toml = "1.1.6"
