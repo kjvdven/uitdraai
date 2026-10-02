@@ -136,6 +136,7 @@ A live preview window on Wayland.
 
 ### Phase 3: extras
 - [x] Render math (`$...$`, `$$...$$`) to SVG in Rust up front, without JavaScript in the page: RaTeX with embedded KaTeX fonts, see [#16](https://github.com/kjvdven/uitdraai/issues/16). `cargo audit` warns that `ttf-parser` 0.25 is unmaintained (RUSTSEC-2026-0192); keep an eye on it
+- [x] Render ```` ```chordpro ```` blocks (chords above the lyrics, chord diagrams) with `chordsketch-render-html`, see [#21](https://github.com/kjvdven/uitdraai/issues/21). Its abc2svg, lilypond and musescore delegates are off; ABC sheet music is still open
 - [ ] Render Mermaid to SVG in Rust up front, without JavaScript in the page. Research and options: [#1](https://github.com/kjvdven/uitdraai/issues/1); parked to keep the app simple
 - [ ] Reconsider Blitz as a lighter viewer (pure Rust, no WebKit, no web process). Only worthwhile once the CSS the themes use is well supported there; compare Blitz's roadmap with the themes first
 - [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content. Math: add `+tex_math_dollars` to the `gfm` reader, pandoc then writes editable Word equations (OMML) and MathML for ODT. Mermaid: pandoc has no support; optional `mmdc` (mermaid-cli) as a subprocess that renders the blocks to PNG before pandoc runs, same pattern as weasyprint. Without it the block stays a code block
