@@ -6,6 +6,7 @@ The plan and the phases live in `PLAN.md`. This file describes how we build.
 - Work on one phase from `PLAN.md` at a time and stop afterwards for review.
 - Tick off finished tasks in `PLAN.md`.
 - `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test` must pass before you report a step as done.
+- A feature that adds or changes rendered output also adds an example to `tests/fixtures/kitchen-sink.md`, so every theme can be checked against it.
 - Small, logical commits with a clear message per step.
 - In doubt about a design choice or an open question from `PLAN.md`: ask, don't guess.
 
