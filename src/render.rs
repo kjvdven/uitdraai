@@ -67,18 +67,23 @@ pub fn render_fragment(markdown: &str, allow_html: bool) -> Rendered {
     let arena = Arena::new();
     let root = parse_document(&arena, markdown, options);
     for node in root.descendants() {
-        let svg = match &node.data.borrow().value {
+        let raw = match &node.data.borrow().value {
             NodeValue::Math(NodeMath {
                 literal,
                 display_math,
                 ..
             }) => crate::math::render(literal, *display_math),
+            NodeValue::CodeBlock(block)
+                if block.info.split_whitespace().next() == Some("chordpro") =>
+            {
+                crate::chords::render(&block.literal)
+            }
             _ => None,
         };
-        // Raw is written unescaped even in safe mode; a formula that doesn't
-        // parse stays a Math node, so comrak shows its source.
-        if let Some(svg) = svg {
-            node.data.borrow_mut().value = NodeValue::Raw(svg);
+        // Raw is written unescaped even in safe mode; a formula or song that
+        // doesn't parse keeps its node, so comrak shows its source.
+        if let Some(raw) = raw {
+            node.data.borrow_mut().value = NodeValue::Raw(raw);
         }
     }
     // Same slugs as in the HTML: comrak also starts a fresh Anchorizer per document.
@@ -206,6 +211,17 @@ mod tests {
         let html = render_fragment("$\\frac{1}$", false).html;
         assert!(html.contains("<span data-math-style=\"inline\">\\frac{1}</span>"));
         assert!(!html.contains("<svg"));
+    }
+
+    #[test]
+    fn chordpro_block_becomes_a_song() {
+        let html = render_fragment(
+            "```chordpro\n[Am]Hello\n```\n\n```text\n[Am]Hello\n```",
+            false,
+        )
+        .html;
+        assert_eq!(html.matches("<span class=\"chord\">Am</span>").count(), 1);
+        assert!(html.contains("[Am]Hello"));
     }
 
     #[test]

@@ -1,3 +1,4 @@
+mod chords;
 mod config;
 mod export;
 #[cfg(feature = "gui")]
