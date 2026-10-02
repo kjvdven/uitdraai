@@ -240,13 +240,25 @@ fn open_preview(
         let global = global.clone();
         move |file: &Path| spawn_preview(file, &global)
     };
+    let themes = theme::list(theme_dir)?;
+    // Built-in themes are compiled in, so only `--css` and user themes are files to watch.
+    let mut stylesheets: Vec<PathBuf> = global.css.iter().cloned().collect();
+    if let Some(dir) = theme_dir {
+        stylesheets.extend(
+            themes
+                .iter()
+                .map(|name| dir.join(format!("{name}.css")))
+                .filter(|path| path.is_file()),
+        );
+    }
     let options = gui::Options {
         page,
-        themes: theme::list(theme_dir)?,
+        themes,
         theme: match global.css {
             Some(_) => None,
             None => Some(global.theme.clone().unwrap_or_else(|| "default".to_owned())),
         },
+        stylesheets,
         default_pdf: default_pdf_path(&file, preview.config.export_dir.as_deref())?,
         editor: preview.config.editor,
         default_export: preview.config.default_export,

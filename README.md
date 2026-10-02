@@ -12,7 +12,7 @@ Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live p
 
 - Live reload on save that keeps your scroll position
 - PDF export with print CSS (A4, page numbers, sensible page breaks) and standalone HTML export
-- Themes: a built-in `default`, your own in `~/.config/uitdraai/themes/`
+- Themes: a built-in `default`, your own in `~/.config/uitdraai/themes/`; saving your own theme or `--css` file restyles the preview in place
 - Code highlighting, tables, task lists and footnotes (GitHub Flavored Markdown)
 - Math: `$E = mc^2$` inline and `$$...$$` on its own line, rendered to SVG with KaTeX fonts, no JavaScript
 - Chords: a ```` ```chordpro ```` block puts the chords above the lyrics, with chord diagrams and `{chordsize}`
