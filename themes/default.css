@@ -101,6 +101,72 @@ pre {
   color: #82071e;
 }
 
+/* ChordPro: each chord-block stacks its chord on top of its lyrics. */
+/* Bottom-aligned, so a `{chordsize}` chord doesn't push its lyrics off the line. */
+.song .line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.song .chord-block {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+/* `{chordsize}` in the song overrides this font-size inline. */
+.song .chord {
+  padding-right: 0.4em;
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #0969da;
+}
+
+/* min-height keeps a chord at the end of a line, with empty lyrics, above the line. */
+.song .lyrics {
+  min-height: 1.6em;
+  white-space: pre;
+}
+
+.song .meta,
+.song .section-label {
+  margin: 0.25em 0;
+  font-size: 0.85em;
+  color: #59636e;
+}
+
+.song .tab .lyrics {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 0.9em;
+}
+
+.song .empty-line {
+  height: 1em;
+}
+
+.song .chord-diagrams-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.song .chord-diagram-container {
+  display: inline-block;
+  margin: 0 0.5em 0 0;
+}
+
+.song .music-glyph--time {
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 0.75em;
+  line-height: 1;
+  text-align: center;
+}
+
+.song .music-glyph--time__bar {
+  border-top: 1px solid;
+}
+
 @media print {
   /* 10pt on A4 wraps lines about like the 48rem preview column at 16px. */
   body {

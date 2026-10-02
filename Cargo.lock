@@ -213,6 +213,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "chordsketch-chordpro"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94e4c013b9067ce39b896a246ee07b3901609529dd5aacaabf0f987cb1f04d64"
+
+[[package]]
+name = "chordsketch-render-html"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e66f1e0e2868ea6bd15205ca0fef0a8a7ae9be6cb72bbef86d8f06be4a11b245"
+dependencies = [
+ "chordsketch-chordpro",
+]
+
+[[package]]
 name = "clap"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1951,6 +1966,8 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "chordsketch-chordpro",
+ "chordsketch-render-html",
  "clap",
  "comrak",
  "directories",
