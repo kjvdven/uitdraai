@@ -101,6 +101,51 @@ pre {
   color: #82071e;
 }
 
+/* ChordPro: each chord-block stacks its chord on top of its lyrics. */
+.song .line {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.song .chord-block {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* `{chordsize}` in the song overrides this font-size inline. */
+.song .chord {
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #0969da;
+}
+
+.song .lyrics {
+  white-space: pre;
+}
+
+.song .meta,
+.song .section-label {
+  margin: 0.25em 0;
+  font-size: 0.85em;
+  color: #59636e;
+}
+
+.song .tab .lyrics {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 0.9em;
+}
+
+.song .empty-line {
+  height: 1em;
+}
+
+.song .chord-diagrams-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
 @media print {
   /* 10pt on A4 wraps lines about like the 48rem preview column at 16px. */
   body {
