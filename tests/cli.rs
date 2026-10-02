@@ -64,6 +64,19 @@ fn render_turns_chordpro_into_a_song() {
 }
 
 #[test]
+fn render_kitchen_sink() {
+    let dir = temp_dir("kitchen-sink");
+    let out = uitdraai(&dir, &["render", "tests/fixtures/kitchen-sink.md"]);
+    let html = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    assert!(html.contains("<h6 id=\"heading-6\">"));
+    assert!(html.contains("<span class=\"math math-display\"><svg "));
+    assert!(html.contains("<img src=\"../../data/screenshot.png\""));
+    assert!(!html.contains("<kbd>"));
+    assert!(html.contains("<article class=\"song\">"));
+}
+
+#[test]
 fn render_writes_to_output_file() {
     let dir = temp_dir("output");
     let md = dir.join("notes.md");
