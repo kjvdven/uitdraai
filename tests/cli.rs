@@ -52,6 +52,18 @@ fn render_turns_math_into_svg() {
 }
 
 #[test]
+fn render_turns_chordpro_into_a_song() {
+    let dir = temp_dir("chords");
+    let out = uitdraai(&dir, &["render", "tests/fixtures/chords.md"]);
+    let html = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    assert_eq!(html.matches("<article class=\"song\">").count(), 1);
+    assert!(html.contains("<span class=\"chord\">G7</span>"));
+    assert!(html.contains("font-size: 20pt;"));
+    assert!(html.contains("[G]Not a song"));
+}
+
+#[test]
 fn render_kitchen_sink() {
     let dir = temp_dir("kitchen-sink");
     let out = uitdraai(&dir, &["render", "tests/fixtures/kitchen-sink.md"]);
@@ -61,6 +73,7 @@ fn render_kitchen_sink() {
     assert!(html.contains("<span class=\"math math-display\"><svg "));
     assert!(html.contains("<img src=\"../../data/screenshot.png\""));
     assert!(!html.contains("<kbd>"));
+    assert!(html.contains("<article class=\"song\">"));
 }
 
 #[test]

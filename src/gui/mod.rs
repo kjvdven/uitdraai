@@ -49,6 +49,8 @@ pub struct Options {
     pub themes: Vec<String>,
     /// The theme to preselect; `None` when `--css` is in use.
     pub theme: Option<String>,
+    /// Stylesheet files to watch; saving one restyles the page in place.
+    pub stylesheets: Vec<PathBuf>,
     /// Where the export dialog starts: folder and file name.
     pub default_pdf: PathBuf,
     /// Command for "Open in editor"; `None` uses the desktop's default app.
@@ -146,6 +148,20 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
             eprintln!("Error: {err:#}");
         }
     });
+
+    // One watcher per file: whichever theme is picked later, its file is already watched.
+    let (css_tx, css_rx) = async_channel::unbounded();
+    for stylesheet in &options.stylesheets {
+        let (stylesheet, css_tx) = (stylesheet.clone(), css_tx.clone());
+        thread::spawn(move || {
+            let result = watch::watch(&stylesheet, || {
+                let _ = css_tx.send_blocking(());
+            });
+            if let Err(err) = result {
+                eprintln!("Error: {err:#}");
+            }
+        });
+    }
 
     // NON_UNIQUE: a second `uitdraai other.md` would otherwise just activate this process.
     let app = gtk::Application::builder()
@@ -254,6 +270,14 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         }
         add_shortcuts(app, &window, &ctx);
         window.present();
+
+        let css_rx = css_rx.clone();
+        let css_ctx = ctx.clone();
+        glib::spawn_future_local(async move {
+            while css_rx.recv().await.is_ok() {
+                css_ctx.apply_theme();
+            }
+        });
 
         let rx = rx.clone();
         glib::spawn_future_local(async move {
