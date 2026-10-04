@@ -155,6 +155,17 @@ $$
 
 Broken on purpose: $\frac{1}$
 
+## Diagrams
+
+Rendered by `mmdc` when it is installed; without it this stays a code block.
+
+```mermaid
+flowchart LR
+    Markdown --> Render{mmdc?}
+    Render -- yes --> SVG
+    Render -. no .-> Code[Code block]
+```
+
 ## Chords
 
 ```chordpro
