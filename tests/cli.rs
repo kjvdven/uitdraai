@@ -64,6 +64,28 @@ fn render_turns_chordpro_into_a_song() {
 }
 
 #[test]
+fn render_turns_mermaid_into_svg() {
+    let dir = temp_dir("mermaid");
+    let out = uitdraai(&dir, &["render", "tests/fixtures/mermaid.md"]);
+    let html = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    // `render` waits for mmdc, so no placeholder may be left.
+    assert!(!html.contains("class=\"mermaid mermaid-pending\""));
+    if Command::new("mmdc").arg("--version").output().is_err() {
+        assert!(!html.contains("class=\"mermaid"));
+        eprintln!("skipped: mmdc not installed");
+        return;
+    }
+    assert_eq!(
+        html.matches("<div class=\"mermaid\"><svg id=\"mermaid-")
+            .count(),
+        2
+    );
+    assert_eq!(html.matches("class=\"mermaid mermaid-failed\"").count(), 1);
+    assert!(html.contains("A --&gt;"));
+}
+
+#[test]
 fn render_kitchen_sink() {
     let dir = temp_dir("kitchen-sink");
     let out = uitdraai(&dir, &["render", "tests/fixtures/kitchen-sink.md"]);

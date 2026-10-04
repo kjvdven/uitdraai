@@ -4,6 +4,7 @@ mod export;
 #[cfg(feature = "gui")]
 mod gui;
 mod math;
+mod mermaid;
 mod render;
 mod theme;
 mod watch;
@@ -103,7 +104,7 @@ fn main() -> Result<()> {
     let theme_dir = theme::user_theme_dir();
     match cli.command {
         Some(Command::Render { file, output }) => {
-            let html = render_file(&file, &cli.global, theme_dir.as_deref())?.html;
+            let html = render_file(&file, &cli.global, theme_dir.as_deref(), true)?.html;
             match output {
                 Some(path) => fs::write(&path, html)
                     .with_context(|| format!("cannot write {}", path.display()))?,
@@ -183,14 +184,19 @@ fn open_preview(
         },
     };
     let file = file.as_path();
-    let page = render_file(file, global, theme_dir)?;
+    let page = render_file(file, global, theme_dir, false)?;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
     let render_page = {
         let (file, global, theme_dir) =
             (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
         move |theme: Option<&str>| {
-            render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())
+            render_file(
+                &file,
+                &with_theme(&global, theme),
+                theme_dir.as_deref(),
+                false,
+            )
         }
     };
     let theme_css = {
@@ -231,7 +237,13 @@ fn open_preview(
         let (file, global, theme_dir) =
             (file.clone(), global.clone(), theme_dir.map(Path::to_owned));
         move |html_file: &Path, theme: Option<&str>| {
-            let html = render_file(&file, &with_theme(&global, theme), theme_dir.as_deref())?.html;
+            let html = render_file(
+                &file,
+                &with_theme(&global, theme),
+                theme_dir.as_deref(),
+                true,
+            )?
+            .html;
             fs::write(html_file, html)
                 .with_context(|| format!("cannot write {}", html_file.display()))
         }
@@ -320,7 +332,7 @@ fn export_file(
     global: &GlobalOpts,
     theme_dir: Option<&Path>,
 ) -> Result<()> {
-    let html = render_file(file, global, theme_dir)?.html;
+    let html = render_file(file, global, theme_dir, true)?.html;
     let file =
         fs::canonicalize(file).with_context(|| format!("cannot resolve {}", file.display()))?;
     let base_dir = file
@@ -331,7 +343,14 @@ fn export_file(
     })
 }
 
-fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Result<Rendered> {
+/// Renders the file to a complete page. With `wait_for_diagrams`, Mermaid blocks are
+/// rendered before it returns; otherwise they stay placeholders for the window to fill in.
+fn render_file(
+    file: &Path,
+    global: &GlobalOpts,
+    theme_dir: Option<&Path>,
+    wait_for_diagrams: bool,
+) -> Result<Rendered> {
     let markdown = timed(global.timing, "read", || {
         fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))
     })?;
@@ -342,6 +361,15 @@ fn render_file(file: &Path, global: &GlobalOpts, theme_dir: Option<&Path>) -> Re
         allow_html: global.allow_html,
         allow_remote: global.allow_remote,
     };
+    let page = timed(global.timing, "render", || {
+        render::render_page(&markdown, &css, opts)
+    });
+    if !wait_for_diagrams || page.diagrams.is_empty() {
+        return Ok(page);
+    }
+    timed(global.timing, "mermaid", || {
+        mermaid::render_missing(&page.diagrams);
+    });
     Ok(timed(global.timing, "render", || {
         render::render_page(&markdown, &css, opts)
     }))

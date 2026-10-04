@@ -101,6 +101,42 @@ pre {
   color: #82071e;
 }
 
+/* Mermaid: mmdc caps the SVG width inline, so it never grows past its natural size. */
+.mermaid {
+  margin: 1em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.mermaid-status {
+  margin: 0 0 0.5em;
+  font-size: 0.9em;
+  color: #59636e;
+  text-align: left;
+}
+
+/* The real height is unknown until mmdc is done; this roughly matches a small diagram. */
+.mermaid-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12em;
+  background: #f6f8fa;
+  border-radius: 6px;
+}
+
+.mermaid-pending .mermaid-status {
+  margin: 0;
+}
+
+.mermaid-failed .mermaid-status {
+  color: #82071e;
+}
+
+.mermaid-failed pre {
+  text-align: left;
+}
+
 /* ChordPro: each chord-block stacks its chord on top of its lyrics. */
 /* Bottom-aligned, so a `{chordsize}` chord doesn't push its lyrics off the line. */
 .song .line {
