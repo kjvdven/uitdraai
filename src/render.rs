@@ -27,6 +27,8 @@ pub struct Heading {
 pub struct Rendered {
     pub html: String,
     pub headings: Vec<Heading>,
+    /// Mermaid sources shown as a placeholder until `mermaid::render_missing` has run.
+    pub diagrams: Vec<String>,
 }
 
 static ADAPTER: LazyLock<SyntectAdapter> =
@@ -66,6 +68,8 @@ pub fn render_fragment(markdown: &str, allow_html: bool) -> Rendered {
     };
     let arena = Arena::new();
     let root = parse_document(&arena, markdown, options);
+    let mut diagrams = Vec::new();
+    let mut mermaid_blocks = 0;
     for node in root.descendants() {
         let raw = match &node.data.borrow().value {
             NodeValue::Math(NodeMath {
@@ -78,10 +82,22 @@ pub fn render_fragment(markdown: &str, allow_html: bool) -> Rendered {
             {
                 crate::chords::render(&block.literal)
             }
+            NodeValue::CodeBlock(block)
+                if block.info.split_whitespace().next() == Some("mermaid")
+                    && mermaid_blocks < crate::mermaid::MAX_DIAGRAMS =>
+            {
+                mermaid_blocks += 1;
+                crate::mermaid::block(&block.literal).map(|diagram| {
+                    if diagram.pending {
+                        diagrams.push(block.literal.clone());
+                    }
+                    diagram.html
+                })
+            }
             _ => None,
         };
         // Raw is written unescaped even in safe mode; a formula or song that
-        // doesn't parse keeps its node, so comrak shows its source.
+        // doesn't parse, or a diagram without mmdc, keeps its node, so comrak shows its source.
         if let Some(raw) = raw {
             node.data.borrow_mut().value = NodeValue::Raw(raw);
         }
@@ -108,7 +124,11 @@ pub fn render_fragment(markdown: &str, allow_html: bool) -> Rendered {
     if format_html_with_plugins(root, options, &mut html, &plugins).is_err() {
         html.clear();
     }
-    Rendered { html, headings }
+    Rendered {
+        html,
+        headings,
+        diagrams,
+    }
 }
 
 /// Renders Markdown to a complete HTML page with the given CSS inlined.
@@ -121,6 +141,7 @@ pub fn render_page(markdown: &str, css: &str, opts: RenderOptions) -> Rendered {
     let Rendered {
         html: body,
         headings,
+        diagrams,
     } = render_fragment(markdown, opts.allow_html);
     let html = format!(
         r#"<!DOCTYPE html>
@@ -139,7 +160,11 @@ pub fn render_page(markdown: &str, css: &str, opts: RenderOptions) -> Rendered {
 </html>
 "#
     );
-    Rendered { html, headings }
+    Rendered {
+        html,
+        headings,
+        diagrams,
+    }
 }
 
 #[cfg(test)]
