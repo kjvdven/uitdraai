@@ -137,7 +137,7 @@ A live preview window on Wayland.
 ### Phase 3: extras
 - [x] Render math (`$...$`, `$$...$$`) to SVG in Rust up front, without JavaScript in the page: RaTeX with embedded KaTeX fonts, see [#16](https://github.com/kjvdven/uitdraai/issues/16). `cargo audit` warns that `ttf-parser` 0.25 is unmaintained (RUSTSEC-2026-0192); keep an eye on it
 - [x] Render ```` ```chordpro ```` blocks (chords above the lyrics, chord diagrams) with `chordsketch-render-html`, see [#21](https://github.com/kjvdven/uitdraai/issues/21). Its abc2svg, lilypond and musescore delegates are off; ABC sheet music is still open
-- [ ] Render Mermaid to SVG in Rust up front, without JavaScript in the page. Research and options: [#1](https://github.com/kjvdven/uitdraai/issues/1); parked to keep the app simple
+- [x] Render ```` ```mermaid ```` blocks to inline SVG with `mmdc` (mermaid-cli) as an optional subprocess, without JavaScript in the page. See the risk "Mermaid via mmdc" and [#1](https://github.com/kjvdven/uitdraai/issues/1). The preview shows a placeholder and swaps in the SVG once `mmdc` is done; `render` and export wait for it. Without `mmdc` the block stays a code block
 - [ ] Reconsider Blitz as a lighter viewer (pure Rust, no WebKit, no web process). Only worthwhile once the CSS the themes use is well supported there; compare Blitz's roadmap with the themes first
 - [ ] DOCX/ODT export via pandoc (`--docx`, `--odt`, `--reference-doc`), see the design decision "DOCX/ODT in phase 3". Look into pandoc's `--sandbox` for remote content. Math: add `+tex_math_dollars` to the `gfm` reader, pandoc then writes editable Word equations (OMML) and MathML for ODT. Mermaid: pandoc has no support; optional `mmdc` (mermaid-cli) as a subprocess that renders the blocks to PNG before pandoc runs, same pattern as weasyprint. Without it the block stays a code block
 - [x] Headings dropdown in the toolbar (`Ctrl+Shift+T`, `F9`); headings get GFM ids
@@ -148,6 +148,7 @@ A live preview window on Wayland.
 - **Fedora:** `gtk4-devel webkitgtk6.0-devel pandoc weasyprint`
 - **Debian/Ubuntu 24.04+:** `libgtk-4-dev libwebkitgtk-6.0-dev pandoc weasyprint`
 - **NixOS:** `nix develop` (see `flake.nix`) provides the libraries and weasyprint; Rust comes from `mise.toml`.
+- **Optional, for Mermaid diagrams:** `mmdc` from mermaid-cli (`npm install -g @mermaid-js/mermaid-cli`, or `mermaid-cli` in nixpkgs).
 
 ## Risks and open questions
 - **NVIDIA:** WebKitGTK can show an empty window. Workaround: `WEBKIT_DISABLE_DMABUF_RENDERER=1`, available as `disable_dmabuf = true` in `config.toml`.
@@ -155,5 +156,9 @@ A live preview window on Wayland.
 - **Preview and PDF use different engines.** See the design decision "One render path". If differences become a nuisance in practice, an optional `--pdf-engine webkit` could be added.
 - **WebKitGTK is big.** Over 100 MB on disk and roughly 80 to 150 MB RAM per window. Accepted for now; Blitz is the alternative for later (phase 3). If you only want the CLI, build without the `gui` feature.
 - **Syntect cold start.** Phase 1 baseline (release, `tests/fixtures/large.md`): first render ~180 ms, after that ~16 ms, without code blocks ~1 ms. Almost all of it is one-time syntect initialisation. Fits the 300 ms startup target, but only just. Options if it turns out too slow: warm up the `LazyLock` in a thread in parallel with GTK init, or `syntect-onig` instead of `syntect-fancy`.
-- **Mermaid without JavaScript.** Math is done with RaTeX (see #16), which proves the approach: render to self-contained SVG in Rust, same picture in preview and PDF. Mermaid is researched (see #1): `merman` or `mmdflux` can render SVG in pure Rust. If that doesn't work well, the fallback is our own embedded scripts via `UserContentManager` (never scripts from the Markdown file).
+- **Mermaid via mmdc.** Decided for now: `mmdc` as an optional subprocess, the same pattern as weasyprint. It is real Mermaid, maintained by the Mermaid team, and adds no crates. The pure-Rust options fell short (see #1): `mermaid-rs-renderer` and `mmdflux` inject style values, `rusty-mermaid` is unmaintained and `merman` pulls in ~120 crates and is still alpha. Revisit `merman` at its stable 0.8.0.
+  - Security: `securityLevel: "strict"` and `htmlLabels: false`, locked with `secure` so `%%{init}%%` can't undo them. The SVG is then checked for scripts, event handlers, links, `<foreignObject>` and remote `url(`; a hit shows the error state with the source.
+  - Cost: each diagram starts a headless Chromium, ~1.5 s and ~270 MB. Results are cached in memory per source, so only a changed diagram runs again. A run is killed after 20 s; more than 100 diagrams per document stay code blocks.
+  - `mmdc` runs Mermaid's JavaScript inside its own Chromium, outside our page, so the no-network rule can't be enforced there by us. Icon packs (`--iconPacks`) stay off.
+  - Each SVG gets its own id (`--svgId`), which also scopes mmdc's `<style>`. Sequence diagrams still repeat a few unreferenced ids (`actor0`, `root-0`); harmless for now.
 - **Remote content.** Decided: off by default, only on via `--allow-remote`. In the preview the CSP meta tag blocks it (see `CLAUDE.md`). WeasyPrint gets `--allowed-protocols file,data` (with `--allow-remote` also `https`); the CSP meta tag doesn't apply there.
