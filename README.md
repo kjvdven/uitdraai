@@ -16,12 +16,12 @@ Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live p
 - Code highlighting, tables, task lists and footnotes (GitHub Flavored Markdown)
 - Math: `$E = mc^2$` inline and `$$...$$` on its own line, rendered to SVG with KaTeX fonts, no JavaScript
 - Chords: a ```` ```chordpro ```` block puts the chords above the lyrics, with chord diagrams and `{chordsize}`
-- Diagrams: a ```` ```mermaid ```` block becomes an SVG when `mmdc` ([mermaid-cli](https://github.com/mermaid-js/mermaid-cli)) is installed; without it the block stays code
+- Diagrams: a ```` ```mermaid ```` block becomes an SVG (flowchart, sequence, class, state, ER, Gantt, pie), rendered in Rust with [merman](https://github.com/Latias94/merman), no JavaScript
 - Safe by default: no JavaScript in the page, raw HTML and remote images off unless you pass `--allow-html` or `--allow-remote`
 
 ## Install
 
-You need Rust (edition 2024), GTK 4.10+, WebKitGTK 6.0 and, for PDF export, WeasyPrint. Mermaid diagrams also need `mmdc` (`npm install -g @mermaid-js/mermaid-cli`, or `mermaid-cli` in nixpkgs).
+You need Rust (edition 2024), GTK 4.10+, WebKitGTK 6.0 and, for PDF export, WeasyPrint.
 
 - **Arch:** `gtk4 webkitgtk-6.0 python-weasyprint`
 - **Fedora:** `gtk4-devel webkitgtk6.0-devel weasyprint`
