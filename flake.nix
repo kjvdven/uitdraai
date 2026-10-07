@@ -17,7 +17,7 @@
     {
       packages.x86_64-linux.default = pkgs.rustPlatform.buildRustPackage {
         pname = "uitdraai";
-        version = "0.3.0";
+        version = "0.4.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         nativeBuildInputs = [
@@ -39,11 +39,7 @@
       devShells.x86_64-linux.default = pkgs.mkShell {
         nativeBuildInputs = [ pkgs.pkg-config ];
         buildInputs = libs;
-        # mmdc stays out of the package wrapper: it pulls in Chromium for an optional feature.
-        packages = [
-          pkgs.python3Packages.weasyprint
-          pkgs.mermaid-cli
-        ];
+        packages = [ pkgs.python3Packages.weasyprint ];
         # cargo-built binaries get no RUNPATH to the Nix store. LD_LIBRARY_PATH is no
         # option: a global mise [env] can overwrite it, so bake the path in instead.
         RUSTFLAGS = "-C link-arg=-Wl,-rpath,${pkgs.lib.makeLibraryPath libs}";
