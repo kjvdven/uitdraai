@@ -101,11 +101,16 @@ pre {
   color: #82071e;
 }
 
-/* Mermaid: mmdc caps the SVG width inline, so it never grows past its natural size. */
+/* Mermaid: merman caps the SVG width inline, so it never grows past its natural size. */
 .mermaid {
   margin: 1em 0;
   text-align: center;
   overflow-x: auto;
+}
+
+/* merman hardcodes a white background on the root SVG; the page decides that. */
+.mermaid svg {
+  background-color: transparent !important;
 }
 
 .mermaid-status {
@@ -113,20 +118,6 @@ pre {
   font-size: 0.9em;
   color: #59636e;
   text-align: left;
-}
-
-/* The real height is unknown until mmdc is done; this roughly matches a small diagram. */
-.mermaid-pending {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 12em;
-  background: #f6f8fa;
-  border-radius: 6px;
-}
-
-.mermaid-pending .mermaid-status {
-  margin: 0;
 }
 
 .mermaid-failed .mermaid-status {
