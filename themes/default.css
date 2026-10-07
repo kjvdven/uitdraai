@@ -108,9 +108,15 @@ pre {
   overflow-x: auto;
 }
 
-/* merman hardcodes a white background on the root SVG; the page decides that. */
+/* merman's own <style> is scoped on the SVG id, so only !important gets past it. */
+/* It hardcodes a white page background and half-transparent grey edge labels. */
 .mermaid svg {
   background-color: transparent !important;
+}
+
+.mermaid .edgeLabel rect {
+  fill: #fff !important;
+  opacity: 1 !important;
 }
 
 .mermaid-status {
