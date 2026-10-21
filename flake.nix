@@ -17,7 +17,7 @@
     {
       packages.x86_64-linux.default = pkgs.rustPlatform.buildRustPackage {
         pname = "uitdraai";
-        version = "0.3.0";
+        version = "0.4.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         nativeBuildInputs = [
