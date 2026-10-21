@@ -1,38 +1,21 @@
 use std::collections::HashMap;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{LazyLock, Mutex};
-use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
-use merman::svg::SvgRenderOptions;
-use merman::{
-    Engine, MermaidConfig, OperationControl, RenderOutput, RenderRequest, Renderer, SvgRequest,
-};
+use anyhow::{Context, Result};
+use bezel_mermaid::{Metrics, Options};
 
 /// Blocks past this many in one document stay code blocks; a cheap guard against a hostile file.
 pub const MAX_DIAGRAMS: usize = 100;
 
-// A diagram takes milliseconds; anything near this is a pathological input.
-const DEADLINE: Duration = Duration::from_secs(5);
-
 // Editing a diagram adds an entry per save; start over rather than grow without bound.
 const CACHE_LIMIT: usize = 200;
 
-/// Rendered SVG per diagram source; `None` when merman failed or the result looked unsafe.
+/// Rendered SVG per diagram source; `None` when the render failed or the result looked unsafe.
 static CACHE: LazyLock<Mutex<HashMap<String, Option<String>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-static RENDERER: LazyLock<Renderer> = LazyLock::new(|| {
-    // `secure` keeps `%%{init}%%` in a diagram from loosening these again.
-    // Without htmlLabels, labels are SVG text instead of <foreignObject>, which WeasyPrint drops.
-    let site = MermaidConfig::from_value(serde_json::json!({
-        "securityLevel": "strict",
-        "htmlLabels": false,
-        "flowchart": { "htmlLabels": false },
-        "secure": ["secure", "securityLevel", "startOnLoad", "maxTextSize", "maxEdges", "htmlLabels", "flowchart"]
-    }));
-    Renderer::new().with_engine(Engine::new().with_site_config(site))
-});
+// Pele's defaults: source, output and edge limits included.
+static OPTIONS: LazyLock<Options> = LazyLock::new(Options::default);
 
 /// The HTML for a ```` ```mermaid ```` block: the SVG, or the error state with the source.
 pub fn block(source: &str) -> String {
@@ -46,7 +29,7 @@ pub fn block(source: &str) -> String {
             let svg = match run(source) {
                 Ok(svg) if !looks_unsafe(&svg) => Some(svg),
                 Ok(_) => {
-                    eprintln!("Error: merman output rejected: it contains scripts, links or HTML");
+                    eprintln!("Error: diagram output rejected: it contains scripts, links or HTML");
                     None
                 }
                 Err(err) => {
@@ -88,28 +71,16 @@ fn escape(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
+// `Metrics` measures text with Arial's advances; the page font differs a little, so
+// labels can sit slightly loose or tight. Colours and fonts come from the theme's
+// `--bezel-*` variables, so the SVG carries no style of its own.
 fn run(source: &str) -> Result<String> {
-    // The id also scopes the <style>; without one every diagram is #merman and they clash.
-    let mut hasher = DefaultHasher::new();
-    source.hash(&mut hasher);
-    let request = SvgRequest {
-        options: SvgRenderOptions {
-            diagram_id: Some(format!("mermaid-{:016x}", hasher.finish())),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let control = OperationControl::new().with_deadline(DEADLINE);
-    let output = RENDERER
-        .render(RenderRequest::svg(source, control, request))
-        .context("merman cannot render this diagram")?;
-    match output {
-        RenderOutput::Svg(Some(svg)) => Ok(svg.into_parts().0),
-        _ => bail!("merman found no diagram in this block"),
-    }
+    bezel_mermaid::render(source, &OPTIONS, &Metrics)
+        .map(|drawing| drawing.svg)
+        .context("cannot render this diagram")
 }
 
-/// Strict mode should already strip all of this; a check here doesn't depend on merman getting it right.
+/// The renderer escapes labels and drops `javascript:` links; a check here doesn't depend on it.
 fn looks_unsafe(svg: &str) -> bool {
     let lower = svg.to_ascii_lowercase();
     let markers = [
@@ -169,13 +140,12 @@ mod tests {
     }
 
     #[test]
-    fn renders_a_flowchart_with_a_scoped_id() {
+    fn renders_a_flowchart_without_its_own_style() {
         let html = block("flowchart LR\n  Een --> Twee\n");
-        assert!(
-            html.starts_with("<div class=\"mermaid\"><svg id=\"mermaid-"),
-            "{html}"
-        );
-        assert!(!html.contains("id=\"merman\""));
+        assert!(html.starts_with("<div class=\"mermaid\"><svg "), "{html}");
+        assert!(html.contains("class=\"bezel bezel-flowchart\""));
+        assert!(html.contains("var(--bezel-fg"));
+        assert!(!html.contains("<style"));
         assert!(!html.contains("<foreignObject"));
         assert!(html.contains("Twee"));
     }
