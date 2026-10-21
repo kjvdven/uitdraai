@@ -270,7 +270,6 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
         }
         add_shortcuts(app, &window, &ctx);
         window.present();
-        ctx.render_diagrams(options.page.diagrams.clone());
 
         let css_rx = css_rx.clone();
         let css_ctx = ctx.clone();
@@ -289,7 +288,6 @@ pub fn run(file: PathBuf, options: Options, hooks: Hooks) -> Result<()> {
                         ctx.outline.set(&content.headings);
                         ctx.status
                             .set(&format!("Updated {} · {}", clock(), millis(took)));
-                        ctx.render_diagrams(content.diagrams);
                     }
                     Err(err) => ctx.status.set(&format!("Error: {err:#}")),
                 }
@@ -334,43 +332,9 @@ impl Ctx {
                     ctx.preview.load(&page.html);
                     ctx.outline.set(&page.headings);
                     ctx.status.set(&format!("Reloaded {}", clock()));
-                    ctx.render_diagrams(page.diagrams);
                 }
                 Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
                 Err(_) => ctx.status.set("Error: rendering panicked"),
-            }
-        });
-    }
-
-    /// Renders the placeholder diagrams off the GTK thread, then swaps in the content again.
-    fn render_diagrams(&self, diagrams: Vec<String>) {
-        if diagrams.is_empty() {
-            return;
-        }
-        let ctx = self.clone();
-        self.status
-            .set(&format!("Rendering {} diagram(s)…", diagrams.len()));
-        glib::spawn_future_local(async move {
-            let hooks = Arc::clone(&ctx.hooks);
-            let start = Instant::now();
-            let rendered = gio::spawn_blocking(move || {
-                crate::mermaid::render_missing(&diagrams);
-                // Read the file again: it may have been saved while mmdc ran.
-                (hooks.render_content)()
-            })
-            .await;
-            match rendered {
-                Ok(Ok(content)) => {
-                    ctx.preview.replace_content(&content.html);
-                    ctx.outline.set(&content.headings);
-                    ctx.status.set(&format!(
-                        "Diagrams rendered {} · {}",
-                        clock(),
-                        millis(start.elapsed())
-                    ));
-                }
-                Ok(Err(err)) => ctx.status.set(&format!("Error: {err:#}")),
-                Err(_) => ctx.status.set("Error: rendering diagrams panicked"),
             }
         });
     }

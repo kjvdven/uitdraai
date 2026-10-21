@@ -157,13 +157,19 @@ Broken on purpose: $\frac{1}$
 
 ## Diagrams
 
-Rendered by `mmdc` when it is installed; without it this stays a code block.
+Rendered in Rust by merman; a diagram that does not parse shows its source instead.
 
 ```mermaid
 flowchart LR
-    Markdown --> Render{mmdc?}
-    Render -- yes --> SVG
-    Render -. no .-> Code[Code block]
+    Markdown --> Parse{Mermaid?}
+    Parse -- yes --> SVG
+    Parse -. no .-> Code[Code block]
+```
+
+```mermaid
+sequenceDiagram
+    Editor->>uitdraai: save
+    uitdraai-->>Preview: #content replaced
 ```
 
 ## Chords

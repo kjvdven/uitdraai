@@ -69,13 +69,6 @@ fn render_turns_mermaid_into_svg() {
     let out = uitdraai(&dir, &["render", "tests/fixtures/mermaid.md"]);
     let html = String::from_utf8(out.stdout).unwrap();
     assert!(out.status.success());
-    // `render` waits for mmdc, so no placeholder may be left.
-    assert!(!html.contains("class=\"mermaid mermaid-pending\""));
-    if Command::new("mmdc").arg("--version").output().is_err() {
-        assert!(!html.contains("class=\"mermaid"));
-        eprintln!("skipped: mmdc not installed");
-        return;
-    }
     assert_eq!(
         html.matches("<div class=\"mermaid\"><svg id=\"mermaid-")
             .count(),
