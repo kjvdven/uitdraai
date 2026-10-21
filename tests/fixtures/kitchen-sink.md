@@ -157,7 +157,7 @@ Broken on purpose: $\frac{1}$
 
 ## Diagrams
 
-Rendered in Rust by merman; a diagram that does not parse shows its source instead.
+Rendered in Rust by bezel-mermaid, colours from the theme; a diagram that does not parse shows its source instead.
 
 ```mermaid
 flowchart LR
@@ -170,6 +170,45 @@ flowchart LR
 sequenceDiagram
     Editor->>uitdraai: save
     uitdraai-->>Preview: #content replaced
+```
+
+```mermaid
+classDiagram
+    class Rendered {
+        +String html
+        +Vec~Heading~ headings
+    }
+    Rendered <-- Heading
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> Watching
+    Watching --> Rendering: file saved
+    Rendering --> Watching: content replaced
+```
+
+```mermaid
+erDiagram
+    DOCUMENT ||--o{ HEADING : contains
+    DOCUMENT ||--o{ DIAGRAM : contains
+```
+
+```mermaid
+gantt
+    title Release
+    dateFormat YYYY-MM-DD
+    section Work
+    Render   :done, 2026-10-01, 7d
+    Theme    :active, 2026-10-08, 5d
+    Release  :2026-10-13, 2d
+```
+
+```mermaid
+pie title Where the bytes go
+    "Layout" : 60
+    "Text" : 25
+    "Markers" : 15
 ```
 
 ## Chords

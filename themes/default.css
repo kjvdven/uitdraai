@@ -101,22 +101,22 @@ pre {
   color: #82071e;
 }
 
-/* Mermaid: merman caps the SVG width inline, so it never grows past its natural size. */
+/* Mermaid: the SVG carries no colours of its own, it reads these variables. */
 .mermaid {
+  --bezel-bg: #fff;
+  --bezel-fg: #1f2328;
+  --bezel-muted: #59636e;
+  --bezel-line: #1f2328;
+  --bezel-surface: #f6f8fa;
+  --bezel-surface-alt: #eff1f3;
+  --bezel-border: #d0d7de;
+  --bezel-accent: #0969da;
+  --bezel-radius: 6px;
+  --bezel-font: inherit;
+  --bezel-font-mono: ui-monospace, monospace;
   margin: 1em 0;
   text-align: center;
   overflow-x: auto;
-}
-
-/* merman's own <style> is scoped on the SVG id, so only !important gets past it. */
-/* It hardcodes a white page background and half-transparent grey edge labels. */
-.mermaid svg {
-  background-color: transparent !important;
-}
-
-.mermaid .edgeLabel rect {
-  fill: #fff !important;
-  opacity: 1 !important;
 }
 
 .mermaid-status {

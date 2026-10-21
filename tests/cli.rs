@@ -69,11 +69,8 @@ fn render_turns_mermaid_into_svg() {
     let out = uitdraai(&dir, &["render", "tests/fixtures/mermaid.md"]);
     let html = String::from_utf8(out.stdout).unwrap();
     assert!(out.status.success());
-    assert_eq!(
-        html.matches("<div class=\"mermaid\"><svg id=\"mermaid-")
-            .count(),
-        2
-    );
+    assert_eq!(html.matches("<div class=\"mermaid\"><svg ").count(), 2);
+    assert!(html.contains("class=\"bezel bezel-sequence\""));
     assert_eq!(html.matches("class=\"mermaid mermaid-failed\"").count(), 1);
     assert!(html.contains("A --&gt;"));
 }

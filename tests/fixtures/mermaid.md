@@ -10,8 +10,8 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     Editor->>uitdraai: save
-    uitdraai->>merman: diagram source
-    merman-->>uitdraai: SVG
+    uitdraai->>renderer: diagram source
+    renderer-->>uitdraai: SVG
 ```
 
 Broken on purpose:

@@ -16,7 +16,7 @@ Lightweight Markdown previewer for Linux, Wayland-first (niri, Hyprland). Live p
 - Code highlighting, tables, task lists and footnotes (GitHub Flavored Markdown)
 - Math: `$E = mc^2$` inline and `$$...$$` on its own line, rendered to SVG with KaTeX fonts, no JavaScript
 - Chords: a ```` ```chordpro ```` block puts the chords above the lyrics, with chord diagrams and `{chordsize}`
-- Diagrams: a ```` ```mermaid ```` block becomes an SVG (flowchart, sequence, class, state, ER, Gantt, pie), rendered in Rust with [merman](https://github.com/Latias94/merman), no JavaScript
+- Diagrams: a ```` ```mermaid ```` block becomes an SVG, every Mermaid diagram type, rendered in Rust with [bezel-mermaid](https://github.com/crabtalk/bezel) (a port of Obsidian's Pele), no JavaScript; colours follow the theme
 - Safe by default: no JavaScript in the page, raw HTML and remote images off unless you pass `--allow-html` or `--allow-remote`
 
 ## Install
