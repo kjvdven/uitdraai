@@ -1,0 +1,263 @@
+body {
+  margin: 0;
+  background: #fff;
+  color: #1f2328;
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+}
+
+/* PDF page margins take their color from here, not from body. */
+@page {
+  background: #fff;
+}
+
+#content {
+  max-width: 61.25rem;
+  margin: 0 auto;
+  padding: 2rem 2.8rem;
+}
+
+p, blockquote, ul, ol, dl, table, pre {
+  margin: 0 0 1rem;
+}
+
+ul, ol {
+  padding-left: 2em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 1.5rem 0 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  scroll-margin-top: 1rem;
+}
+
+h1, h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #dfe4e9;
+}
+
+h1 { font-size: 2em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1em; }
+h5 { font-size: 0.875em; }
+h6 { font-size: 0.85em; color: #59636e; }
+
+a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+}
+
+blockquote {
+  padding: 0 1em;
+  border-left: 0.25em solid #d1d9e0;
+  color: #59636e;
+}
+
+hr {
+  height: 0.25em;
+  margin: 1.5rem 0;
+  border: 0;
+  background: #d1d9e0;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 6px 13px;
+  border: 1px solid #d1d9e0;
+}
+
+th {
+  font-weight: 600;
+}
+
+tr:nth-child(2n) {
+  background: #f6f8fa;
+}
+
+/* Named fonts first: a system `monospace` alias can point at an icon-only font. */
+code {
+  font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 85%;
+}
+
+:not(pre) > code {
+  padding: 0.2em 0.4em;
+  background: #eff1f3;
+  border-radius: 6px;
+}
+
+pre {
+  padding: 1rem;
+  overflow-x: auto;
+  background: #f6f8fa;
+  border-radius: 6px;
+  font-size: 85%;
+  line-height: 1.45;
+}
+
+pre code {
+  font-size: 100%;
+}
+
+.task-list-item {
+  list-style: none;
+}
+
+.task-list-item-checkbox {
+  margin: 0 0.4em 0 -1.4em;
+  vertical-align: middle;
+}
+
+/* Loose lists wrap the item text in a <p>; keep it next to its checkbox. */
+.task-list-item-checkbox + p {
+  display: inline;
+}
+
+/* A span, not a div: comrak puts display math inside the <p>. */
+.math-display {
+  display: block;
+  margin: 1em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* A formula that doesn't parse keeps its source in this span. */
+[data-math-style] {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  color: #82071e;
+}
+
+/* Mermaid: the SVG carries no colours of its own, it reads these variables. */
+.mermaid {
+  --bezel-bg: #fff;
+  --bezel-fg: #1f2328;
+  --bezel-muted: #59636e;
+  --bezel-line: #1f2328;
+  --bezel-surface: #f6f8fa;
+  --bezel-surface-alt: #eff1f3;
+  --bezel-border: #d1d9e0;
+  --bezel-accent: #0969da;
+  --bezel-radius: 6px;
+  --bezel-font: inherit;
+  --bezel-font-mono: ui-monospace, monospace;
+  margin: 1em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.mermaid-status {
+  margin: 0 0 0.5em;
+  font-size: 0.9em;
+  color: #59636e;
+  text-align: left;
+}
+
+.mermaid-failed .mermaid-status {
+  color: #82071e;
+}
+
+.mermaid-failed pre {
+  text-align: left;
+}
+
+/* ChordPro: each chord-block stacks its chord on top of its lyrics. */
+/* Bottom-aligned, so a `{chordsize}` chord doesn't push its lyrics off the line. */
+.song .line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.song .chord-block {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+/* `{chordsize}` in the song overrides this font-size inline. */
+.song .chord {
+  padding-right: 0.4em;
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #0969da;
+}
+
+/* min-height keeps a chord at the end of a line, with empty lyrics, above the line. */
+.song .lyrics {
+  min-height: 1.6em;
+  white-space: pre;
+}
+
+.song .meta,
+.song .section-label {
+  margin: 0.25em 0;
+  font-size: 0.85em;
+  color: #59636e;
+}
+
+.song .tab .lyrics {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 0.9em;
+}
+
+.song .empty-line {
+  height: 1em;
+}
+
+.song .chord-diagrams-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.song .chord-diagram-container {
+  display: inline-block;
+  margin: 0 0.5em 0 0;
+}
+
+.song .music-glyph--time {
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 0.75em;
+  line-height: 1;
+  text-align: center;
+}
+
+.song .music-glyph--time__bar {
+  border-top: 1px solid;
+}
+
+@media print {
+  /* 10pt on A4 wraps lines about like the 48rem preview column at 16px. */
+  body {
+    font-size: 10pt;
+  }
+
+  #content {
+    max-width: none;
+    padding: 0;
+  }
+}
+
+/* Syntax highlighting: syntect scope classes (ClassStyle::Spaced). */
+.syntax-highlighting .comment { color: #59636e; }
+.syntax-highlighting .string { color: #0a3069; }
+.syntax-highlighting .constant { color: #0550ae; }
+.syntax-highlighting .keyword,
+.syntax-highlighting .storage { color: #cf222e; }
+.syntax-highlighting .entity.name { color: #6639ba; }
+.syntax-highlighting .support { color: #0550ae; }
+.syntax-highlighting .invalid { color: #82071e; }

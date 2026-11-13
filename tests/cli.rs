@@ -115,7 +115,10 @@ fn themes_lists_user_themes_and_dumps_css() {
     fs::write(themes.join("zen.css"), "/* zen */").unwrap();
 
     let list = uitdraai(&dir, &["themes"]);
-    assert_eq!(String::from_utf8(list.stdout).unwrap(), "default\nzen\n");
+    assert_eq!(
+        String::from_utf8(list.stdout).unwrap(),
+        "default\ngithub\nzen\n"
+    );
 
     let dump = uitdraai(&dir, &["themes", "--dump", "zen"]);
     assert_eq!(String::from_utf8(dump.stdout).unwrap(), "/* zen */");
