@@ -6,7 +6,10 @@ use anyhow::{Context, Result, bail};
 use directories::ProjectDirs;
 
 const PRINT_CSS: &str = include_str!("../themes/print.css");
-const BUILTIN: &[(&str, &str)] = &[("default", include_str!("../themes/default.css"))];
+const BUILTIN: &[(&str, &str)] = &[
+    ("default", include_str!("../themes/default.css")),
+    ("github", include_str!("../themes/github.css")),
+];
 const DEFAULT_THEME: &str = "default";
 
 /// Directory with user themes, `~/.config/uitdraai/themes` on Linux.
@@ -130,7 +133,7 @@ mod tests {
         fs::write(dir.join("zen.css"), "").unwrap();
         fs::write(dir.join("default.css"), "").unwrap();
         fs::write(dir.join("notes.txt"), "").unwrap();
-        assert_eq!(list(Some(&dir)).unwrap(), ["default", "zen"]);
+        assert_eq!(list(Some(&dir)).unwrap(), ["default", "github", "zen"]);
     }
 
     #[test]
@@ -142,7 +145,7 @@ mod tests {
     #[test]
     fn missing_theme_dir_is_fine() {
         let dir = temp_dir("missing").join("nope");
-        assert_eq!(list(Some(&dir)).unwrap(), ["default"]);
+        assert_eq!(list(Some(&dir)).unwrap(), ["default", "github"]);
         assert!(load("default", Some(&dir)).is_ok());
     }
 }
